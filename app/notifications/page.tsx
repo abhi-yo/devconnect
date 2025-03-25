@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function NotificationsPage() {
   return (
     <div className="container max-w-2xl py-8">
-      <h1 className="mb-8 text-3xl font-bold">Notifications</h1>
+      <h1 className="mb-8 text-center text-3xl font-bold">Notifications</h1>
       <Suspense
         fallback={
           <div className="space-y-4">

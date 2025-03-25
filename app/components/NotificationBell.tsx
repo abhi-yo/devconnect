@@ -19,10 +19,12 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const utils = trpc.useContext()
 
-  const { data: notifications, isLoading } = trpc.notification.getAll.useQuery(
+  const { data, isLoading } = trpc.notification.getAll.useQuery(
     { limit: 10 },
     {
       enabled: open,
+      refetchInterval: open ? 3000 : false,
+      refetchOnWindowFocus: true,
     }
   )
 
@@ -77,12 +79,12 @@ export function NotificationBell() {
                 </div>
               </div>
             ))
-          ) : notifications?.notifications.length === 0 ? (
+          ) : data?.notifications.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               No notifications
             </div>
           ) : (
-            notifications?.notifications.map((notification) => (
+            data?.notifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
                 className={`flex flex-col items-start gap-1 p-3 ${

@@ -12,10 +12,11 @@ interface Notification {
   id: string
   title: string
   body: string
-  image?: string
-  link?: string
+  image: string | null
+  link: string | null
   isRead: boolean
   createdAt: string
+  userId: string
 }
 
 export function NotificationList() {
@@ -32,13 +33,13 @@ export function NotificationList() {
   } = trpc.notification.getAll.useInfiniteQuery(
     { limit: 20 },
     {
-      getNextPageParam: (lastPage: { notifications: Notification[]; nextCursor?: string }) => lastPage.nextCursor,
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
     }
   )
 
   const { mutate: markAsRead } = trpc.notification.markAsRead.useMutation({
     onSuccess: () => {
-      setUnreadCount((prev) => Math.max(0, prev - 1))
+      setUnreadCount((prev: number) => Math.max(0, prev - 1))
       utils.notification.getAll.invalidate()
     },
   })
@@ -51,11 +52,18 @@ export function NotificationList() {
 
   if (isLoading) return null
 
-  const notifications = data?.pages.flatMap((page: { notifications: Notification[] }) => page.notifications) ?? []
+  // Remove duplicate notifications by id
+  const notifications = Array.from(
+    new Map(
+      data?.pages
+        .flatMap((page) => page.notifications)
+        .map((notification) => [notification.id, notification])
+    ).values()
+  ) ?? []
 
   if (notifications.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
+      <div className="flex h-[calc(100vh-4rem)] flex-col items-center justify-center">
         <p className="text-lg font-medium text-muted-foreground">
           No notifications yet
         </p>
@@ -67,64 +75,54 @@ export function NotificationList() {
   }
 
   return (
-    <div className="space-y-4">
-      {notifications.map((notification: Notification) => (
-        <div
-          key={notification.id}
-          className={`flex gap-4 rounded-lg border p-4 transition-colors ${
-            !notification.isRead ? "bg-muted/50" : ""
-          }`}
-        >
-          {notification.image && (
-            <img
-              src={notification.image}
-              alt=""
-              className="h-12 w-12 rounded-full object-cover"
-            />
+    <div className="flex h-[calc(100vh-4rem)] flex-col">
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-4 p-4">
+          {notifications.map((notification) => (
+            <div
+              key={`${notification.id}-${notification.createdAt}`}
+              className={`flex gap-4 rounded-lg border p-4 transition-colors ${
+                !notification.isRead ? "bg-muted/50" : ""
+              }`}
+            >
+              {notification.image && (
+                <img
+                  src={notification.image}
+                  alt=""
+                  className="h-12 w-12 rounded-full object-cover"
+                />
+              )}
+              <div className="flex-1">
+                <div className="text-sm">{notification.title}</div>
+                <div className="text-sm text-muted-foreground">
+                  {notification.body}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(notification.createdAt), {
+                    addSuffix: true,
+                  })}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  {!notification.isRead && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => markAsRead({ id: notification.id })}
+                    >
+                      Mark as read
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          {hasNextPage && (
+            <div ref={ref} className="flex justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
           )}
-          <div className="flex-1">
-            <div className="text-sm">{notification.title}</div>
-            <div className="text-sm text-muted-foreground">
-              {notification.body}
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(notification.createdAt), {
-                addSuffix: true,
-              })}
-            </div>
-            <div className="mt-2 flex gap-2">
-              {notification.link && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    if (!notification.isRead) {
-                      markAsRead({ id: notification.id })
-                    }
-                    window.location.href = notification.link!
-                  }}
-                >
-                  View
-                </Button>
-              )}
-              {!notification.isRead && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => markAsRead({ id: notification.id })}
-                >
-                  Mark as read
-                </Button>
-              )}
-            </div>
-          </div>
         </div>
-      ))}
-      {hasNextPage && (
-        <div ref={ref} className="flex justify-center py-4">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      )}
+      </div>
     </div>
   )
 } 

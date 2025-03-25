@@ -4,6 +4,14 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import ProfileHeader from "@/components/profile/profile-header"
 import ProfileTabs from "@/components/profile/profile-tabs"
+import ClientProfilePage from "./client-page"
+
+interface SessionUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}
 
 interface ProfilePageProps {
   params: {
@@ -19,6 +27,12 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     where: { username },
     include: {
       profile: true,
+      _count: {
+        select: {
+          followers: true,
+          following: true,
+        },
+      },
     },
   })
 
@@ -28,11 +42,20 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   const isCurrentUser = session?.user && 'id' in session.user ? session.user.id === user.id : false;
 
-  return (
-    <div className="w-full">
-      <ProfileHeader user={user} isCurrentUser={isCurrentUser} />
-      <ProfileTabs user={user} isCurrentUser={isCurrentUser} />
-    </div>
-  )
+  // Check if the current user is following this profile
+  let isFollowing = false;
+  if (session?.user && 'id' in session.user && !isCurrentUser) {
+    const follow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: (session.user as SessionUser).id,
+          followingId: user.id,
+        },
+      },
+    });
+    isFollowing = !!follow;
+  }
+
+  return <ClientProfilePage user={user} isCurrentUser={isCurrentUser} initialIsFollowing={isFollowing} />
 }
 

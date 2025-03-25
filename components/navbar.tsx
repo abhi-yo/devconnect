@@ -15,7 +15,7 @@ export default function Navbar() {
   const navItems = [
     { href: "/", label: "Home", icon: Home },
     { href: "/explore", label: "Explore", icon: Search },
-    { href: "/messages", label: "Messages", icon: MessageSquare },
+    { href: "/chat", label: "Messages", icon: MessageSquare },
     { href: "/notifications", label: "Notifications", icon: Bell },
     { href: "/profile", label: "Profile", icon: User },
   ]

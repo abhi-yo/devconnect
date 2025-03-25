@@ -8,7 +8,7 @@ import { redis } from "@/lib/redis"
 import { postRouter } from "./routers/post"
 import { topicRouter } from "./routers/topic"
 import { userRouter } from "./routers/user"
-import { router } from "./trpc"
+import { notificationRouter } from "./routers/notification"
 
 export const createTRPCContext = async (opts: { headers: Headers }) => {
   const session = await getServerSession(authOptions)
@@ -35,6 +35,7 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
 })
 
 export const createCallerFactory = t.createCallerFactory
+export const router = t.router
 export const publicProcedure = t.procedure
 
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
@@ -53,6 +54,7 @@ export const appRouter = router({
   post: postRouter,
   user: userRouter,
   topic: topicRouter,
+  notification: notificationRouter,
 })
 
 export type AppRouter = typeof appRouter

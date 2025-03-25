@@ -73,26 +73,31 @@ const SidebarProvider = React.forwardRef<
   ) => {
     const isMobile = useIsMobile()
     const [openMobile, setOpenMobile] = React.useState(false)
+    const [isCollapsed, setIsCollapsed] = React.useState(false)
 
-    // Always set to expanded for desktop
-    const open = true
+    // Handle desktop state
+    const open = !isCollapsed
     const setOpen = React.useCallback(
       (value: boolean | ((value: boolean) => boolean)) => {
-        // Do nothing for desktop - always expanded
+        if (typeof value === "function") {
+          setIsCollapsed((prev) => !value(prev))
+        } else {
+          setIsCollapsed(!value)
+        }
       },
       []
     )
 
-    // Helper to toggle the sidebar only on mobile
+    // Helper to toggle the sidebar
     const toggleSidebar = React.useCallback(() => {
       return isMobile
         ? setOpenMobile((open) => !open)
-        : null // Do nothing on desktop
+        : setIsCollapsed((prev) => !prev)
     }, [isMobile])
 
     // We add a state so that we can do data-state="expanded" or "collapsed".
     // This makes it easier to style the sidebar with Tailwind classes.
-    const state = "expanded"
+    const state = isCollapsed ? "collapsed" : "expanded"
 
     const contextValue = React.useMemo<SidebarContext>(
       () => ({

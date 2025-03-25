@@ -1,12 +1,12 @@
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, Dispatch, SetStateAction } from "react"
 import { useSession } from "next-auth/react"
 import { io, Socket } from "socket.io-client"
 import { trpc } from "@/lib/trpc/client"
 import { toast } from "sonner"
 
-type NotificationContextType = {
+interface NotificationContextType {
   unreadCount: number
-  setUnreadCount: (count: number) => void
+  setUnreadCount: Dispatch<SetStateAction<number>>
   socket: Socket | null
 }
 
@@ -15,8 +15,6 @@ const NotificationContext = createContext<NotificationContextType>({
   setUnreadCount: () => {},
   socket: null,
 })
-
-export const useNotification = () => useContext(NotificationContext)
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
@@ -66,4 +64,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       {children}
     </NotificationContext.Provider>
   )
+}
+
+export function useNotification() {
+  return useContext(NotificationContext)
 } 

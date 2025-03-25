@@ -15,7 +15,8 @@ import {
   Code,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Menu
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -33,20 +34,23 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarSeparator,
+  SidebarTrigger,
   useSidebar
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ChatNotifications } from "@/components/chat/ChatNotifications"
 
 export function AppSidebar() {
   const { data: session } = useSession()
   const pathname = usePathname()
-  const { state } = useSidebar()
+  const { state, toggleSidebar } = useSidebar()
+  const collapsed = state === "collapsed"
 
   const navItems = [
     { href: "/", label: "Home", icon: Home },
     { href: "/explore", label: "Explore", icon: Search },
-    { href: "/messages", label: "Messages", icon: MessageSquare },
+    { href: "/chat", label: "Messages", icon: MessageSquare, showNotification: true },
     { href: "/notifications", label: "Notifications", icon: Bell },
     { href: `/profile/${session?.user?.email?.split('@')[0] || ""}`, label: "Profile", icon: User },
     { href: "/settings", label: "Settings", icon: Settings },
@@ -60,15 +64,22 @@ export function AppSidebar() {
   ]
 
   return (
-    <Sidebar variant="sidebar" collapsible="none">
+    <Sidebar variant="sidebar" collapsible="icon">
       <SidebarHeader className="border-b py-3">
-        <div className="flex items-center px-2">
+        <div className="flex items-center justify-between px-2">
           <Link href="/" className="flex items-center">
-            <span className="font-heading text-lg font-bold">DevConnect</span>
+            {collapsed ? (
+              <Code className="h-6 w-6" />
+            ) : (
+              <span className="font-heading text-lg font-bold">DevConnect</span>
+            )}
           </Link>
+          <SidebarTrigger>
+            <Menu className="h-4 w-4" />
+          </SidebarTrigger>
         </div>
         
-        {session && (
+        {session && !collapsed && (
           <div className="mt-4 flex items-center gap-3 px-2">
             <Avatar className="h-9 w-9 border shadow-sm">
               <AvatarImage src={session.user?.image || ""} alt={session.user?.name || ""} />
@@ -100,8 +111,15 @@ export function AppSidebar() {
                     )}
                   >
                     <Link href={item.href} className="flex items-center">
-                      <Icon className="h-4 w-4 flex-shrink-0" />
-                      <span className="ml-2 nav-item">{item.label}</span>
+                      {item.showNotification ? (
+                        <div className="relative">
+                          <Icon className="h-4 w-4 flex-shrink-0" />
+                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500"></span>
+                        </div>
+                      ) : (
+                        <Icon className="h-4 w-4 flex-shrink-0" />
+                      )}
+                      {!collapsed && <span className="ml-2 nav-item">{item.label}</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -117,7 +135,7 @@ export function AppSidebar() {
                 >
                   <button className="w-full flex items-center">
                     <LogOut className="h-4 w-4 flex-shrink-0" />
-                    <span className="ml-2 nav-item">Sign out</span>
+                    {!collapsed && <span className="ml-2 nav-item">Sign out</span>}
                   </button>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -128,7 +146,7 @@ export function AppSidebar() {
         <SidebarSeparator className="my-2" />
         
         <SidebarGroup>
-          <SidebarGroupLabel className="card-heading px-2">Communities</SidebarGroupLabel>
+          {!collapsed && <SidebarGroupLabel className="card-heading px-2">Communities</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
               {communities.map((item) => {
@@ -146,7 +164,11 @@ export function AppSidebar() {
                       )}
                     >
                       <Link href={item.href} className="flex items-center">
-                        <div className="hashtag">#<span className="nav-item">{item.label}</span></div>
+                        {collapsed ? (
+                          <Hash className="h-4 w-4" />
+                        ) : (
+                          <div className="hashtag">#<span className="nav-item">{item.label}</span></div>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -159,7 +181,7 @@ export function AppSidebar() {
                 >
                   <Link href="/communities" className="flex items-center">
                     <Users className="h-4 w-4 flex-shrink-0" />
-                    <span className="ml-2 nav-item">Discover more</span>
+                    {!collapsed && <span className="ml-2 nav-item">Discover more</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

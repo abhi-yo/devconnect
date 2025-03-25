@@ -1,9 +1,10 @@
-import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import type { NextAuthOptions, Session } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GithubProvider from "next-auth/providers/github"
 import { prisma } from "@/lib/prisma"
 import { compare } from "bcrypt"
+import { PrismaAdapter } from "@next-auth/prisma-adapter"
+import { Adapter } from "next-auth/adapters"
 
 interface ExtendedUser {
   id: string
@@ -17,8 +18,55 @@ interface ExtendedSession extends Session {
   user: ExtendedUser
 }
 
+// Create a custom adapter from PrismaAdapter to fix the bio field issue
+const customPrismaAdapter = (): Adapter => {
+  const adapter = PrismaAdapter(prisma)
+  
+  // Override the getUserByAccount method to handle the bio field issue
+  const originalGetUserByAccount = adapter.getUserByAccount
+  adapter.getUserByAccount = async function (providerAccount) {
+    try {
+      const account = await prisma.account.findUnique({
+        where: {
+          provider_providerAccountId: {
+            provider: providerAccount.provider,
+            providerAccountId: providerAccount.providerAccountId,
+          },
+        },
+        select: {
+          userId: true,
+        },
+      })
+
+      if (!account) return null
+
+      const user = await prisma.user.findUnique({
+        where: { id: account.userId },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          email: true,
+          emailVerified: true,
+          password: true,
+          image: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
+
+      return user
+    } catch (error) {
+      console.error("Custom adapter getUserByAccount error:", error)
+      return null
+    }
+  }
+
+  return adapter
+}
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: customPrismaAdapter(),
   session: {
     strategy: "jwt",
   },

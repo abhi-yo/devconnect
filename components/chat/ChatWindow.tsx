@@ -1,47 +1,90 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useChat } from '@/hooks/useChat';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { Message } from '@/types/message';
+import { useChatRoom } from '@/hooks/useSocket';
 
 interface ChatWindowProps {
   chatId: string;
+  onMessageSent?: () => void;
 }
 
-export function ChatWindow({ chatId }: ChatWindowProps) {
+export function ChatWindow({ chatId, onMessageSent }: ChatWindowProps) {
   const [messageInput, setMessageInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [partnerName, setPartnerName] = useState<string>('Chat');
   const { data: session } = useSession();
-  const { messages, isConnected, sendMessage } = useChat(chatId);
-
+  
+  // Use the new socket-based chat room hook
+  const { messages, isConnected, sendMessage, loadInitialMessages } = useChatRoom(chatId);
+  
+  // Load initial data when the component mounts
   useEffect(() => {
-    const loadMessages = async () => {
+    const loadData = async () => {
+      setIsLoading(true);
+      
       try {
-        const response = await fetch(`/api/chats/${chatId}/messages`);
-        const data = await response.json();
-        if (data.messages) {
-          // The useChat hook will handle setting the messages
+        // Load initial messages from the server
+        await loadInitialMessages();
+        
+        // Load chat member info
+        try {
+          const membersResponse = await fetch(`/api/chats/${chatId}/members`);
+          if (membersResponse.ok) {
+            const membersData = await membersResponse.json();
+            
+            if (membersData.members && Array.isArray(membersData.members)) {
+              // Find the member that isn't the current user
+              const partner = membersData.members.find(
+                (member: any) => member.email !== session?.user?.email
+              );
+              
+              if (partner) {
+                setPartnerName(partner.name || partner.email || 'Chat Partner');
+              }
+            }
+          }
+        } catch (error) {
+          console.log('Could not load chat members');
         }
       } catch (error) {
-        console.error('Error loading messages:', error);
+        console.error('Error loading chat data:', error);
       } finally {
         setIsLoading(false);
       }
     };
+    
+    if (session?.user?.email && chatId) {
+      loadData();
+    }
+  }, [chatId, session?.user?.email, loadInitialMessages]);
 
-    loadMessages();
-  }, [chatId]);
-
+  // Function to handle sending a message
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user?.email || !messageInput.trim()) return;
-
-    sendMessage(messageInput.trim(), session.user.email);
+    
+    if (!session?.user?.email || !messageInput.trim() || !chatId) return;
+    
+    // Send the message using our socket hook
+    const sentMessage = sendMessage(messageInput.trim(), session.user.email);
+    
+    // Clear the input
     setMessageInput('');
+    
+    // Notify parent component if needed
+    if (sentMessage && onMessageSent) {
+      onMessageSent();
+    }
+  };
+
+  // Function to refresh messages
+  const handleRefresh = () => {
+    loadInitialMessages();
   };
 
   if (isLoading) {
@@ -55,39 +98,56 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
 
   return (
     <Card className="flex flex-col h-[600px] w-full max-w-2xl mx-auto">
-      <div className="p-4 border-b flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Chat</h2>
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span className="text-sm text-muted-foreground">
-            {isConnected ? 'Connected' : 'Disconnected'}
-          </span>
+      <div className="p-4 border-b flex justify-between items-center">
+        <h2 className="text-xl font-semibold">{partnerName}</h2>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className="text-xs text-muted-foreground">
+              {isConnected ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleRefresh}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Refresh
+          </Button>
         </div>
       </div>
 
       <ScrollArea className="flex-1 p-4">
         <div className="flex flex-col-reverse gap-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex flex-col ${
-                message.senderId === session?.user?.email ? 'items-end' : 'items-start'
-              }`}
-            >
+          {messages.length > 0 ? (
+            messages.map((message) => (
               <div
-                className={`max-w-[80%] rounded-lg p-3 ${
-                  message.senderId === session?.user?.email
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
+                key={message.id}
+                className={`flex flex-col ${
+                  message.senderId === session?.user?.email ? 'items-end' : 'items-start'
                 }`}
               >
-                <p className="break-words">{message.content}</p>
+                <div
+                  className={`max-w-[80%] rounded-lg p-3 ${
+                    message.senderId === session?.user?.email
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted'
+                  }`}
+                >
+                  <p className="break-words">{message.content}</p>
+                </div>
+                <span className="text-xs text-muted-foreground mt-1">
+                  {format(message.timestamp, 'HH:mm')}
+                </span>
               </div>
-              <span className="text-xs text-muted-foreground mt-1">
-                {format(message.timestamp, 'HH:mm')}
-              </span>
+            ))
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">No messages yet. Start a conversation!</p>
             </div>
-          ))}
+          )}
         </div>
       </ScrollArea>
 
@@ -99,10 +159,15 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
             placeholder="Type a message..."
             className="flex-1"
           />
-          <Button type="submit" disabled={!isConnected || !messageInput.trim()}>
+          <Button type="submit" disabled={!messageInput.trim() || !isConnected}>
             Send
           </Button>
         </div>
+        {!isConnected && (
+          <p className="text-xs text-red-500 mt-2">
+            Not connected to chat server. Messages can't be sent right now.
+          </p>
+        )}
       </form>
     </Card>
   );

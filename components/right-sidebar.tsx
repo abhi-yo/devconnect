@@ -7,10 +7,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { trpc } from "@/lib/trpc/client"
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function RightSidebar({ isMobile = false }: { isMobile?: boolean }) {
   const { data: suggestedUsers, isLoading } = trpc.user.getSuggestedUsers.useQuery()
   const { data: trendingTopics } = trpc.topic.getTrending.useQuery()
+  const { toast } = useToast()
+  const utils = trpc.useContext()
+
+  const { mutate: toggleFollow, isLoading: isFollowLoading } = trpc.user.toggleFollow.useMutation({
+    onSuccess: ({ following }, { userId }) => {
+      utils.user.getSuggestedUsers.invalidate()
+      const user = suggestedUsers?.find(u => u.id === userId)
+      if (user) {
+        toast({
+          title: following ? "Followed successfully" : "Unfollowed successfully",
+          description: following ? `You are now following ${user.name}` : `You have unfollowed ${user.name}`,
+        })
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update follow status. Please try again.",
+        variant: "destructive",
+      })
+    },
+  })
 
   return (
     <div className={cn("space-y-4 md:space-y-6", isMobile && "pb-4")}>
@@ -38,7 +61,13 @@ export default function RightSidebar({ isMobile = false }: { isMobile?: boolean 
                     <span className="text-xs text-muted-foreground">@{user.username}</span>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="h-8 rounded-full">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 rounded-full"
+                  onClick={() => toggleFollow({ userId: user.id })}
+                  disabled={isFollowLoading}
+                >
                   Follow
                 </Button>
               </div>
@@ -53,29 +82,32 @@ export default function RightSidebar({ isMobile = false }: { isMobile?: boolean 
         </CardContent>
       </Card>
 
-      <Card className={cn(isMobile && "border-0 shadow-none bg-transparent")}>
-        <CardHeader className="pb-1 md:pb-2">
-          <CardTitle className="card-heading">Trending topics</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:gap-4 pt-2">
-          {trendingTopics && trendingTopics.length > 0 ? (
-            trendingTopics.slice(0, isMobile ? 3 : 5).map((topic) => (
-              <div key={topic.id} className="grid gap-1">
-                <Link href={`/topics/${topic.slug}`} className="hashtag hover:underline">
+      {trendingTopics && trendingTopics.length > 0 && (
+        <Card className={cn(isMobile && "border-0 shadow-none bg-transparent")}>
+          <CardHeader className="pb-1 md:pb-2">
+            <CardTitle className="card-heading">Trending topics</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:gap-4 pt-2">
+            {trendingTopics.slice(0, isMobile ? 3 : 5).map((topic) => (
+              <Link
+                key={topic.id}
+                href={`/topic/${topic.slug}`}
+                className="group grid gap-0.5"
+              >
+                <span className="text-sm font-medium group-hover:underline">
                   #{topic.name}
-                </Link>
-                <span className="text-xs text-muted-foreground">{topic.postCount} posts</span>
-              </div>
-            ))
-          ) : (
-            <p className="text-center text-sm text-muted-foreground">No trending topics</p>
-          )}
-
-          <Button variant="ghost" size="sm" className="w-full justify-center rounded-full" asChild>
-            <Link href="/explore/topics">Show more</Link>
-          </Button>
-        </CardContent>
-      </Card>
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {topic.postCount} posts
+                </span>
+              </Link>
+            ))}
+            <Button variant="ghost" size="sm" className="w-full justify-center rounded-full" asChild>
+              <Link href="/explore/topics">Show more</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

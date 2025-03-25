@@ -25,11 +25,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "next-themes";
+import { useNotification } from "@/app/providers/NotificationProvider";
 
 function Header1() {
     const { data: session } = useSession();
     const pathname = usePathname();
     const { theme, setTheme } = useTheme();
+    const { unreadCount } = useNotification();
 
     return (
         <header className="sticky top-0 z-50 w-full border-b border-zinc-800/50 dark:border-zinc-800 bg-white dark:bg-black">
@@ -56,21 +58,29 @@ function Header1() {
                                 <MessageSquare className="h-[18px] w-[18px] text-zinc-600 dark:text-zinc-400" />
                             </Button>
                             
-                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full relative hover:bg-zinc-100 dark:hover:bg-zinc-800 ">
-                                <Bell className="h-[18px] w-[18px] text-zinc-600 dark:text-zinc-400" />
-                                <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary flex items-center justify-center text-[10px] text-white">
-                                    3
-                                </div>
-                            </Button>
+                            <Link href="/notifications">
+                                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full relative hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                                    <Bell className="h-[18px] w-[18px] text-zinc-600 dark:text-zinc-400" />
+                                    {unreadCount > 0 && (
+                                        <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary flex items-center justify-center text-[10px] text-white">
+                                            {unreadCount}
+                                        </div>
+                                    )}
+                                </Button>
+                            </Link>
                             
-                            <Button variant="default" size="sm" className="rounded-full gap-1.5 hidden md:flex h-9 px-5 ml-1">
-                                <Plus className="h-4 w-4" />
-                                <span className="font-medium">Post</span>
-                            </Button>
+                            <Link href="/">
+                                <Button variant="default" size="sm" className="rounded-full gap-1.5 hidden md:flex h-9 px-5 ml-1">
+                                    <Plus className="h-4 w-4" />
+                                    <span className="font-medium">Post</span>
+                                </Button>
+                            </Link>
 
-                            <Button variant="default" size="icon" className="rounded-full h-10 w-10 md:hidden">
-                                <Plus className="h-[18px] w-[18px]" />
-                            </Button>
+                            <Link href="/">
+                                <Button variant="default" size="icon" className="rounded-full h-10 w-10 md:hidden">
+                                    <Plus className="h-[18px] w-[18px]" />
+                                </Button>
+                            </Link>
 
                             <Button
                                 variant="ghost"

@@ -1,10 +1,26 @@
 import { z } from "zod"
 import { router, protectedProcedure } from "@/lib/trpc/trpc"
-import { NotificationService } from "@/lib/services/notification"
+
+// Helper function to create notifications with proper typing
+export async function createNotification(prisma: any, data: {
+  userId: string;
+  title: string;
+  body: string;
+  link?: string;
+  image?: string;
+  read?: boolean;
+}) {
+  return await prisma.notification.create({
+    data
+  });
+}
 
 export const notificationRouter = router({
   getAll: protectedProcedure
-    .input(z.object({ limit: z.number().min(1).max(100), cursor: z.string().optional() }))
+    .input(z.object({ 
+      limit: z.number().min(1).max(100).optional().default(20),
+      cursor: z.string().optional() 
+    }))
     .query(async ({ ctx, input }) => {
       const { limit, cursor } = input
       const userId = ctx.user.id
@@ -16,7 +32,7 @@ export const notificationRouter = router({
         orderBy: { createdAt: "desc" },
       })
 
-      let nextCursor: string | undefined = undefined
+      let nextCursor: typeof cursor | undefined = undefined
       if (notifications.length > limit) {
         const nextItem = notifications.pop()
         nextCursor = nextItem!.id
@@ -29,7 +45,13 @@ export const notificationRouter = router({
     }),
 
   getUnreadCount: protectedProcedure.query(async ({ ctx }) => {
-    return NotificationService.getUnreadCount(ctx.user.id)
+    const count = await ctx.prisma.notification.count({
+      where: {
+        userId: ctx.user.id,
+        read: false,
+      },
+    })
+    return count
   }),
 
   markAsRead: protectedProcedure
@@ -40,7 +62,7 @@ export const notificationRouter = router({
 
       await ctx.prisma.notification.update({
         where: { id, userId },
-        data: { isRead: true },
+        data: { read: true },
       })
 
       return { success: true }
@@ -51,8 +73,8 @@ export const notificationRouter = router({
       const userId = ctx.user.id
 
       await ctx.prisma.notification.updateMany({
-        where: { userId, isRead: false },
-        data: { isRead: true },
+        where: { userId, read: false },
+        data: { read: true },
       })
 
       return { success: true }
@@ -61,6 +83,16 @@ export const notificationRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      return NotificationService.delete(input.id, ctx.user.id)
+      const { id } = input
+      const userId = ctx.user.id
+
+      await ctx.prisma.notification.delete({
+        where: {
+          id,
+          userId, // Ensure user can only delete their own notifications
+        },
+      })
+
+      return { success: true }
     }),
 }) 

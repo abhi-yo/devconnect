@@ -1,12 +1,19 @@
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { router, publicProcedure, protectedProcedure } from "@/lib/trpc/trpc"
+import { createNotification } from "./notification"
 
 interface SessionUser {
   id: string;
   name?: string | null;
   email?: string | null;
   image?: string | null;
+}
+
+// Helper function to truncate text
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
 }
 
 export const postRouter = router({
@@ -82,121 +89,159 @@ export const postRouter = router({
       }
     }),
 
-  getUserPosts: publicProcedure.input(z.object({ userId: z.string() })).query(async ({ ctx, input }) => {
-    const { userId } = input
-    const currentUserId = ctx.session?.user ? (ctx.session.user as SessionUser).id : undefined
+  getUserPosts: publicProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        limit: z.number().min(1).max(100).default(10),
+        cursor: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { userId, limit, cursor } = input
+      const currentUserId = ctx.session?.user ? (ctx.session.user as SessionUser).id : undefined
 
-    const posts = await ctx.prisma.post.findMany({
-      where: { authorId: userId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            image: true,
+      const posts = await ctx.prisma.post.findMany({
+        where: { authorId: userId },
+        take: limit + 1,
+        cursor: cursor ? { id: cursor } : undefined,
+        orderBy: { createdAt: "desc" },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              image: true,
+            },
+          },
+          _count: {
+            select: {
+              likes: true,
+              comments: true,
+            },
           },
         },
-        _count: {
-          select: {
-            likes: true,
-            comments: true,
+      })
+
+      let nextCursor: typeof cursor | undefined = undefined
+      if (posts.length > limit) {
+        const nextItem = posts.pop()
+        nextCursor = nextItem!.id
+      }
+
+      let postsWithLikedStatus = []
+
+      if (currentUserId) {
+        const postIds = posts.map((post) => post.id)
+        const likes = await ctx.prisma.like.findMany({
+          where: {
+            postId: { in: postIds },
+            userId: currentUserId,
           },
-        },
-      },
-    })
+          select: {
+            postId: true,
+          },
+        })
 
-    let postsWithLikedStatus = []
+        const likedPostIds = new Set(likes.map((like) => like.postId))
 
-    if (currentUserId) {
-      const postIds = posts.map((post) => post.id)
+        postsWithLikedStatus = posts.map((post) => ({
+          ...post,
+          likedByMe: likedPostIds.has(post.id),
+        }))
+      } else {
+        postsWithLikedStatus = posts.map((post) => ({
+          ...post,
+          likedByMe: false,
+        }))
+      }
+
+      return {
+        items: postsWithLikedStatus,
+        nextCursor,
+      }
+    }),
+
+  getUserLikedPosts: publicProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        limit: z.number().min(1).max(100).default(10),
+        cursor: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { userId, limit, cursor } = input
+      const currentUserId = ctx.session?.user ? (ctx.session.user as SessionUser).id : undefined
+
       const likes = await ctx.prisma.like.findMany({
-        where: {
-          postId: { in: postIds },
-          userId: currentUserId,
-        },
-        select: {
-          postId: true,
-        },
-      })
-
-      const likedPostIds = new Set(likes.map((like) => like.postId))
-
-      postsWithLikedStatus = posts.map((post) => ({
-        ...post,
-        likedByMe: likedPostIds.has(post.id),
-      }))
-    } else {
-      postsWithLikedStatus = posts.map((post) => ({
-        ...post,
-        likedByMe: false,
-      }))
-    }
-
-    return postsWithLikedStatus
-  }),
-
-  getUserLikedPosts: publicProcedure.input(z.object({ userId: z.string() })).query(async ({ ctx, input }) => {
-    const { userId } = input
-    const currentUserId = ctx.session?.user ? (ctx.session.user as SessionUser).id : undefined
-
-    const likes = await ctx.prisma.like.findMany({
-      where: { userId },
-      include: {
-        post: {
-          include: {
-            author: {
-              select: {
-                id: true,
-                name: true,
-                username: true,
-                image: true,
+        where: { userId },
+        take: limit + 1,
+        cursor: cursor ? { id: cursor } : undefined,
+        include: {
+          post: {
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  name: true,
+                  username: true,
+                  image: true,
+                },
               },
-            },
-            _count: {
-              select: {
-                likes: true,
-                comments: true,
+              _count: {
+                select: {
+                  likes: true,
+                  comments: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-    })
-
-    const posts = likes.map((like) => like.post)
-
-    let postsWithLikedStatus = []
-
-    if (currentUserId) {
-      const postIds = posts.map((post) => post.id)
-      const userLikes = await ctx.prisma.like.findMany({
-        where: {
-          postId: { in: postIds },
-          userId: currentUserId,
-        },
-        select: {
-          postId: true,
-        },
+        orderBy: { createdAt: "desc" },
       })
 
-      const likedPostIds = new Set(userLikes.map((like) => like.postId))
+      let nextCursor: typeof cursor | undefined = undefined
+      if (likes.length > limit) {
+        const nextItem = likes.pop()
+        nextCursor = nextItem!.id
+      }
 
-      postsWithLikedStatus = posts.map((post) => ({
-        ...post,
-        likedByMe: likedPostIds.has(post.id),
-      }))
-    } else {
-      postsWithLikedStatus = posts.map((post) => ({
-        ...post,
-        likedByMe: false,
-      }))
-    }
+      const posts = likes.map((like) => like.post)
 
-    return postsWithLikedStatus
-  }),
+      let postsWithLikedStatus = []
+
+      if (currentUserId) {
+        const postIds = posts.map((post) => post.id)
+        const userLikes = await ctx.prisma.like.findMany({
+          where: {
+            postId: { in: postIds },
+            userId: currentUserId,
+          },
+          select: {
+            postId: true,
+          },
+        })
+
+        const likedPostIds = new Set(userLikes.map((like) => like.postId))
+
+        postsWithLikedStatus = posts.map((post) => ({
+          ...post,
+          likedByMe: likedPostIds.has(post.id),
+        }))
+      } else {
+        postsWithLikedStatus = posts.map((post) => ({
+          ...post,
+          likedByMe: false,
+        }))
+      }
+
+      return {
+        items: postsWithLikedStatus,
+        nextCursor,
+      }
+    }),
 
   create: protectedProcedure
     .input(z.object({ content: z.string().min(1).max(500) }))
@@ -228,6 +273,7 @@ export const postRouter = router({
     })
 
     if (existingLike) {
+      // Unlike - just delete the like, no notification needed
       await ctx.prisma.like.delete({
         where: {
           userId_postId: {
@@ -238,12 +284,55 @@ export const postRouter = router({
       })
       return { liked: false }
     } else {
+      // Get post and author details for new like
+      const [post, user] = await Promise.all([
+        ctx.prisma.post.findUnique({
+          where: { id: postId },
+          include: { 
+            author: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+              }
+            }
+          },
+        }),
+        ctx.prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            name: true,
+            username: true,
+          }
+        })
+      ])
+
+      if (!post) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Post not found",
+        })
+      }
+
+      // Create like
       await ctx.prisma.like.create({
         data: {
           userId,
           postId,
         },
       })
+
+      // Create notification for post author (if it's not their own post)
+      if (post.authorId !== userId) {
+        await createNotification(ctx.prisma, {
+          userId: post.authorId,
+          title: "New Like",
+          body: `${user?.name || user?.username || 'Someone'} liked your post`,
+          link: `/post/${postId}`,
+          read: false
+        });
+      }
+
       return { liked: true }
     }
   }),
@@ -274,12 +363,24 @@ export const postRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { postId, content } = input
       const userId = ctx.user.id
-
+      
+      const post = await ctx.prisma.post.findUnique({
+        where: { id: postId },
+        select: { authorId: true }
+      })
+      
+      if (!post) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Post not found",
+        })
+      }
+      
       const comment = await ctx.prisma.comment.create({
         data: {
           content,
-          postId,
           authorId: userId,
+          postId,
         },
         include: {
           author: {
@@ -292,7 +393,18 @@ export const postRouter = router({
           },
         },
       })
-
+      
+      // Only send notification if the post author is not the commenter
+      if (post.authorId !== userId) {
+        await createNotification(ctx.prisma, {
+          userId: post.authorId,
+          title: "New Comment",
+          body: `${ctx.user.name || 'Someone'} commented on your post`,
+          link: `/post/${postId}`,
+          read: false
+        });
+      }
+      
       return comment
     }),
 
