@@ -126,7 +126,7 @@ model TopicOnPost {
 
 model User {
   id            String    @id @default(cuid())
-  name          String
+  name          String?
   username      String    @unique
   email         String    @unique
   emailVerified DateTime?
@@ -135,13 +135,25 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts       Account[]
-  sessions       Session[]
+  profile       Profile?
+  accounts      Account[]
+  sessions      Session[]
+  verificationTokens VerificationToken[]
   posts          Post[]
   comments       Comment[]
   likes          Like[]
-  profile        Profile?
   followers      Follow[]  @relation("Follow_followerIdToUser") 
   following      Follow[]  @relation("Follow_followingIdToUser")
   notifications  Notification[]
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expires   DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
 }

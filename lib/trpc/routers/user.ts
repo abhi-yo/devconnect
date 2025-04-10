@@ -63,14 +63,15 @@ export const userRouter = router({
 
     // If user is logged in, exclude them and users they follow
     let excludeUserIds: string[] = []
+    let following: { followingId: string }[] = []
 
     if (userId) {
-      const following = await ctx.prisma.follow.findMany({
+      following = await ctx.prisma.follow.findMany({
         where: { followerId: userId },
         select: { followingId: true },
       })
 
-      excludeUserIds = [userId, ...following.map((f) => f.followingId)]
+      excludeUserIds = [userId]
     }
 
     const users = await ctx.prisma.user.findMany({
@@ -89,7 +90,11 @@ export const userRouter = router({
       },
     })
 
-    return users
+    // Add isFollowing status to each user
+    return users.map(user => ({
+      ...user,
+      isFollowing: following.some(f => f.followingId === user.id)
+    }))
   }),
 
   toggleFollow: protectedProcedure.input(z.object({ userId: z.string() })).mutation(async ({ ctx, input }) => {

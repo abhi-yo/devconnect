@@ -1,31 +1,26 @@
 "use client"
 
-import { useSession } from "next-auth/react"
-import CreatePostForm from "@/components/create-post-form"
-import PostFeed from "@/components/post-feed"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import Landing from "@/app/landing/page";
+import { HomePage } from "@/components/new-ui/HomePage";
 
 export default function Home() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/landing")
-    }
-  }, [status, router])
+  // Show loading state
+  if (status === "loading") {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
 
-  if (status === "loading") return null
-  if (!session) return null
+  // Show landing page for unauthenticated users
+  if (status === "unauthenticated") {
+    return <Landing />;
+  }
 
-  return (
-    <main className="flex min-h-screen flex-col items-center p-4 md:p-8">
-      <div className="w-full max-w-2xl space-y-6">
-        <CreatePostForm />
-        <PostFeed />
-      </div>
-    </main>
-  )
+  // Show homepage for authenticated users
+  return <HomePage />;
 }
 

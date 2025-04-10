@@ -1,12 +1,11 @@
-import ExploreSection from '@/components/ExploreSection';
+"use client";
 
-export default function ExplorePage() {
+import { ExplorePage } from '@/components/new-ui/ExplorePage';
+
+export default function Explore() {
   return (
-    <main className="flex min-h-screen flex-col items-center p-4 md:p-8">
-      <div className="w-full">
-        <h1 className="text-3xl font-bold mb-6 text-center">Explore Developer News</h1>
-        <ExploreSection />
-      </div>
-    </main>
+    <div className="w-full">
+      <ExplorePage />
+    </div>
   );
 } 

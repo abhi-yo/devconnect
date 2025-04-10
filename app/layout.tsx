@@ -3,25 +3,28 @@ import { Inter, Space_Grotesk } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import AuthProvider from "@/components/auth-provider"
-import { TRPCProvider } from "@/components/trpc-provider"
-import { SidebarProvider } from "@/components/ui/sidebar"
-import { ConditionalLayout } from "@/components/conditional-layout"
+import { TRPCProvider } from "@/lib/trpc/Provider"
+import { AppLayout } from "@/components/new-ui/AppLayout"
 import "./globals.css"
+import { cn } from "@/lib/utils"
 
 const inter = Inter({ 
   subsets: ["latin"],
-  variable: '--font-inter',
+  variable: "--font-inter", 
 })
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: '--font-space-grotesk',
+  variable: "--font-space",
 })
 
 export const metadata: Metadata = {
   title: "DevConnect",
-  description: "Social Media for Developers",
-  generator: "v0.dev",
+  description: "Connect with developers and share your work",
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
 }
 
 export default function RootLayout({
@@ -40,10 +43,8 @@ export default function RootLayout({
         >
           <TRPCProvider>
             <AuthProvider>
-              <SidebarProvider>
-                <ConditionalLayout>{children}</ConditionalLayout>
-                <Toaster />
-              </SidebarProvider>
+              <AppLayout>{children}</AppLayout>
+              <Toaster />
             </AuthProvider>
           </TRPCProvider>
         </ThemeProvider>

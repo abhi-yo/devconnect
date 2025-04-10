@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { trpc } from "@/lib/trpc/client"
 import { useToast } from "@/components/ui/use-toast"
-import { StartChatButton } from "@/components/chat/StartChatButton"
 import {
   Dialog,
   DialogContent,
@@ -143,7 +142,6 @@ export default function ProfileHeader({ user, isCurrentUser, isFollowing, isFoll
             >
               {isFollowing ? "Unfollow" : "Follow"}
             </Button>
-            <StartChatButton targetUserId={user.id} />
           </div>
         )}
       </div>
@@ -204,7 +202,6 @@ export default function ProfileHeader({ user, isCurrentUser, isFollowing, isFoll
                 >
                   {isFollowing ? "Unfollow" : "Follow"}
                 </Button>
-                <StartChatButton targetUserId={user.id} />
               </div>
             )}
           </div>

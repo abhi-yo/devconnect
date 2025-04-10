@@ -14,14 +14,28 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 
 const signInSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z.string().min(8, { message: "Password must be at least 8 characters" }),
+  email: z
+    .string()
+    .email({ message: "Please enter a valid email address" })
+    .min(1, "Email is required"),
+  password: z
+    .string()
+    .min(8, { message: "Password must be at least 8 characters" })
+    .max(100, { message: "Password is too long" })
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+      {
+        message:
+          "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character",
+      }
+    ),
 })
 
 type SignInFormValues = z.infer<typeof signInSchema>
 
 export default function SignInForm() {
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -29,14 +43,16 @@ export default function SignInForm() {
     register,
     handleSubmit,
     formState: { errors },
+    setError: setFormError,
   } = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
   })
 
   const onSubmit = async (data: SignInFormValues) => {
-    setIsLoading(true)
-
     try {
+      setIsLoading(true)
+      setError(null)
+
       const result = await signIn("credentials", {
         email: data.email,
         password: data.password,
@@ -44,19 +60,32 @@ export default function SignInForm() {
       })
 
       if (result?.error) {
-        toast({
-          title: "Error",
-          description: "Invalid email or password",
-          variant: "destructive",
-        })
-      } else {
-        router.push("/")
-        router.refresh()
+        if (result.error === "Too many attempts. Please try again later.") {
+          toast({
+            title: "Rate Limited",
+            description: "Too many attempts. Please try again later.",
+            variant: "destructive",
+          })
+        } else {
+          setError("Invalid email or password")
+          setFormError("email", { message: "Invalid email or password" })
+          setFormError("password", { message: "Invalid email or password" })
+        }
+        return
       }
+
+      toast({
+        title: "Success",
+        description: "Successfully signed in",
+      })
+
+      router.push("/")
+      router.refresh()
     } catch (error) {
+      console.error("Sign in error:", error)
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -65,13 +94,19 @@ export default function SignInForm() {
   }
 
   const handleGithubSignIn = async () => {
-    setIsLoading(true)
     try {
-      await signIn("github", { callbackUrl: "/" })
+      setIsLoading(true)
+      setError(null)
+      
+      await signIn("github", { 
+        callbackUrl: "/",
+        redirect: true,
+      })
     } catch (error) {
+      console.error("GitHub sign in error:", error)
       toast({
         title: "Error",
-        description: "Failed to sign in with GitHub",
+        description: "Failed to sign in with GitHub. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -86,6 +121,12 @@ export default function SignInForm() {
         <p className="text-[15px] font-normal text-muted-foreground">Enter your credentials to continue</p>
       </div>
 
+      {error && (
+        <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email" className="text-[13px] font-medium leading-none">
@@ -93,12 +134,16 @@ export default function SignInForm() {
           </Label>
           <Input 
             id="email" 
+            type="email"
+            autoComplete="email"
             placeholder="name@example.com" 
             {...register("email")} 
             disabled={isLoading}
             className="h-11 text-[15px] font-normal"
           />
-          {errors.email && <p className="text-[13px] text-destructive mt-1">{errors.email.message}</p>}
+          {errors.email && (
+            <p className="text-[13px] text-destructive mt-1">{errors.email.message}</p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -115,12 +160,15 @@ export default function SignInForm() {
           </div>
           <Input 
             id="password" 
-            type="password" 
+            type="password"
+            autoComplete="current-password"
             {...register("password")} 
             disabled={isLoading}
             className="h-11 text-[15px] font-normal"
           />
-          {errors.password && <p className="text-[13px] text-destructive mt-1">{errors.password.message}</p>}
+          {errors.password && (
+            <p className="text-[13px] text-destructive mt-1">{errors.password.message}</p>
+          )}
         </div>
 
         <Button 
@@ -144,7 +192,9 @@ export default function SignInForm() {
           <span className="w-full border-t" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-background px-3 text-[13px] font-medium text-muted-foreground uppercase">or continue with</span>
+          <span className="bg-background px-3 text-[13px] font-medium text-muted-foreground uppercase">
+            or continue with
+          </span>
         </div>
       </div>
 

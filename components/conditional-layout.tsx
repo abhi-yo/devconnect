@@ -1,9 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Header1 } from "@/components/ui/header";
+import { SimpleHeader } from "@/components/SimpleHeader";
 import { AppSidebar } from "@/components/app-sidebar";
-import RightSidebar from "@/components/right-sidebar";
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 
@@ -48,19 +47,15 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   // For regular pages with authentication, render the full layout with navigation
   return (
     <div className="flex min-h-screen bg-background">
-      <AppSidebar />
-      <div className="flex-1 flex flex-col">
-        <Header1 />
+      <div className="border-r border-border/40">
+        <AppSidebar /> 
+      </div>
+      
+      <div className="flex-1 flex flex-col w-full">
+        <SimpleHeader />
         <main className="flex-1 overflow-auto">
-          <div className="container max-w-[1400px] mx-auto py-4 md:py-6 px-2 md:px-6">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
-              <div className="lg:col-span-3">
-                {children}
-              </div>
-              <div className="hidden lg:block">
-                <RightSidebar />
-              </div>
-            </div>
+          <div className="w-full px-4 md:px-6 py-4 md:py-6">
+            {children}
           </div>
         </main>
       </div>
