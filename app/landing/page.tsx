@@ -217,8 +217,7 @@ export default function Home() {
                       Get Started
                     </Button>
                   </Link>
-                    <Github className="h-4 w-4" />
-                    GitHub
+                    
                 </div>
               </AnimatedSection>
             </div>
