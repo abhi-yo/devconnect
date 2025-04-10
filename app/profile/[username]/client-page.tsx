@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { trpc } from "@/lib/trpc/client"
 import ProfileHeader from "@/components/profile/profile-header"
-import ProfileTabs from "@/components/profile/profile-tabs"
 import { useToast } from "@/components/ui/use-toast"
 
 interface User {
@@ -70,8 +69,17 @@ export default function ClientProfilePage({ user, isCurrentUser, initialIsFollow
         isFollowLoading={isFollowLoading}
         handleToggleFollow={handleToggleFollow}
       />
-      <div className="flex-1 min-h-0">
-        <ProfileTabs user={user} isCurrentUser={isCurrentUser} />
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="max-w-3xl mx-auto p-4">
+          {/* You can add other profile content here */}
+          <div className="text-center text-muted-foreground py-8">
+            {isCurrentUser ? (
+              "Share your thoughts and connect with other developers!"
+            ) : (
+              `View ${user.name}'s activity and contributions`
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
