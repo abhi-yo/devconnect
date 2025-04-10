@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, MapPin, Link as LinkIcon, Calendar, Heart, MessageCircle, Share2, MoreHorizontal } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 interface UserProfile {
   id: string;
