@@ -38,36 +38,80 @@ const userSchema = z.object({
 })
 
 async function sendVerificationEmail(email: string, token: string) {
-  const verificationUrl = `${process.env.NEXTAUTH_URL}/auth/verify?token=${token}`
-  const isDevelopment = process.env.NODE_ENV === 'development'
+  // Always use the production URL when deployed
+  const verificationUrl = `https://devconnect-social.vercel.app/auth/verify?token=${token}`
 
   try {
     const data = await resend.emails.send({
-      from: 'Resend <onboarding@resend.dev>',
-      to: isDevelopment ? 'akshatsing11@gmail.com' : email,
-      subject: 'Verify your email address',
+      from: 'DevConnect <onboarding@resend.dev>',
+      to: email,
+      subject: 'Welcome to DevConnect - Verify Your Email',
       html: `
-        <h2>Welcome to DevConnect!</h2>
-        <p>Please verify your email address by clicking the link below:</p>
-        <a href="${verificationUrl}">Verify Email</a>
-        <p>This link will expire in 24 hours.</p>
-        <p>If you didn't create an account, you can safely ignore this email.</p>
-        ${isDevelopment ? `<p>Note: In development mode, all emails are sent to akshatsing11@gmail.com</p>` : ''}
-      `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Verify Your DevConnect Account</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; background-color: #f4f4f5;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr>
+                <td style="background-color: #ffffff; padding: 40px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                    <tr>
+                      <td align="center">
+                        <h1 style="color: #18181b; margin: 0 0 20px 0; font-size: 24px;">Welcome to DevConnect!</h1>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 20px 0;">
+                        <p style="color: #3f3f46; font-size: 16px; line-height: 24px; margin: 0 0 16px 0;">
+                          Thanks for joining DevConnect! Please verify your email address to get started.
+                        </p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td align="center" style="padding: 20px 0;">
+                        <a href="${verificationUrl}" 
+                           style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 500;">
+                          Verify Email Address
+                        </a>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 20px 0; border-top: 1px solid #e4e4e7;">
+                        <p style="color: #71717a; font-size: 14px; margin: 0;">
+                          This verification link will expire in 24 hours. If you didn't create a DevConnect account, you can safely ignore this email.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `,
+      text: `Welcome to DevConnect! Please verify your email by clicking this link: ${verificationUrl} (Link expires in 24 hours)`,
     })
 
     if (data.error) {
-      console.error('Resend API error:', data.error)
-      throw new Error(data.error.message || 'Failed to send verification email')
+      console.error('Resend API error:', {
+        error: data.error,
+        email,
+        timestamp: new Date().toISOString()
+      })
+      throw new Error('Failed to send verification email')
     }
 
-    console.log('Email sent successfully:', data)
     return data
   } catch (error) {
-    console.error('Error sending verification email:', error)
-    if (error instanceof Error) {
-      console.error('Error details:', error.message)
-    }
+    console.error('Email sending error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      email,
+      timestamp: new Date().toISOString()
+    })
     throw new Error('Failed to send verification email')
   }
 }

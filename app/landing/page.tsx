@@ -217,14 +217,8 @@ export default function Home() {
                       Get Started
                     </Button>
                   </Link>
-                  <Link 
-                    href="https://github.com/abhi-yo/devconnect" 
-                    target="_blank"
-                    className="h-9 sm:h-10 px-4 sm:px-5 text-[13px] font-[450] text-zinc-300 flex items-center justify-center w-[120px] gap-2"
-                  >
                     <Github className="h-4 w-4" />
                     GitHub
-                  </Link>
                 </div>
               </AnimatedSection>
             </div>
