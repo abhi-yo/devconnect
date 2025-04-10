@@ -1,8 +1,8 @@
 'use client'
 
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider } from "@/app/providers/ThemeProvider"
 import { SessionProvider } from "next-auth/react"
-import { TRPCProvider } from "@/components/trpc-provider"
+import { TRPCProvider } from "@/lib/trpc/Provider"
 import { SidebarProvider } from "@/components/ui/sidebar"
 
 export function Providers({ children }: { children: React.ReactNode }) {

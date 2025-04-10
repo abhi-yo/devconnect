@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { Inter, Space_Grotesk } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider } from "@/app/providers/ThemeProvider"
 import { Toaster } from "@/components/ui/toaster"
 import AuthProvider from "@/components/auth-provider"
 import { TRPCProvider } from "@/lib/trpc/Provider"
