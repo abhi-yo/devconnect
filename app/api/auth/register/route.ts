@@ -38,71 +38,62 @@ const userSchema = z.object({
 })
 
 async function sendVerificationEmail(email: string, token: string) {
-  // Always use the production URL when deployed
   const verificationUrl = `https://devconnect-social.vercel.app/auth/verify?token=${token}`
+  const isDevelopment = process.env.NODE_ENV === 'development'
 
   try {
+    // In development or if no domain is verified, always send to your email
+    const toEmail = isDevelopment || !process.env.NEXT_PUBLIC_APP_URL 
+      ? 'akshatsing11@gmail.com' 
+      : email
+
     const data = await resend.emails.send({
       from: 'DevConnect <onboarding@resend.dev>',
-      to: email,
-      subject: 'Welcome to DevConnect - Verify Your Email',
+      to: toEmail,
+      subject: 'Verify your DevConnect account',
       html: `
         <!DOCTYPE html>
         <html>
           <head>
             <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Verify Your DevConnect Account</title>
+            <title>Verify Your Email</title>
           </head>
-          <body style="margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; background-color: #f4f4f5;">
-            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <tr>
-                <td style="background-color: #ffffff; padding: 40px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                    <tr>
-                      <td align="center">
-                        <h1 style="color: #18181b; margin: 0 0 20px 0; font-size: 24px;">Welcome to DevConnect!</h1>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 20px 0;">
-                        <p style="color: #3f3f46; font-size: 16px; line-height: 24px; margin: 0 0 16px 0;">
-                          Thanks for joining DevConnect! Please verify your email address to get started.
-                        </p>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td align="center" style="padding: 20px 0;">
-                        <a href="${verificationUrl}" 
-                           style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 500;">
-                          Verify Email Address
-                        </a>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 20px 0; border-top: 1px solid #e4e4e7;">
-                        <p style="color: #71717a; font-size: 14px; margin: 0;">
-                          This verification link will expire in 24 hours. If you didn't create a DevConnect account, you can safely ignore this email.
-                        </p>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
+          <body style="font-family: system-ui, -apple-system, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h1 style="color: #2563eb;">Welcome to DevConnect!</h1>
+              ${isDevelopment && email !== toEmail 
+                ? `<p style="color: #ef4444; padding: 10px; background: #fee2e2; border-radius: 4px;">
+                    Development Mode: Email would be sent to ${email} in production.
+                   </p>` 
+                : ''}
+              <p>Please verify your email address by clicking the link below:</p>
+              <a href="${verificationUrl}" 
+                 style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                Verify Email
+              </a>
+              <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+                This link will expire in 24 hours.<br>
+                If you didn't create an account, you can safely ignore this email.
+              </p>
+            </div>
           </body>
         </html>
       `,
-      text: `Welcome to DevConnect! Please verify your email by clicking this link: ${verificationUrl} (Link expires in 24 hours)`,
+      text: `Welcome to DevConnect! Please verify your email by clicking: ${verificationUrl}`,
     })
 
     if (data.error) {
       console.error('Resend API error:', {
         error: data.error,
-        email,
+        email: toEmail,
         timestamp: new Date().toISOString()
       })
-      throw new Error('Failed to send verification email')
+      throw new Error(data.error.message || 'Failed to send verification email')
+    }
+
+    // If in development and emails are redirected, still return success
+    if (isDevelopment && email !== toEmail) {
+      console.log(`Development: Email would be sent to ${email}. Currently sent to ${toEmail}`)
     }
 
     return data

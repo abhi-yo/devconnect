@@ -180,7 +180,7 @@ export default function Home() {
               <AnimatedSection delay={0.1}>
                 <div className="flex justify-center mb-6 md:mb-8">
                   <ShinyButton>
-                    <span className="flex items-center space-x-3 text-[13px] font-[350] py-1.5">
+                    <span className="flex items-center space-x-2 sm:space-x-3 text-[11px] sm:text-[13px] font-[350] py-1 sm:py-1.5">
                       <span>Early Access Now Available</span>
                       <span className="h-3 w-[1px] bg-zinc-700/50" />
                       <span>Limited Spots</span>
@@ -191,12 +191,8 @@ export default function Home() {
 
               <AnimatedSection delay={0.2}>
                 <h1 className="font-space-grotesk text-4xl sm:text-4xl md:text-5xl lg:text-6xl leading-[1.15] md:leading-[1.1] font-bold tracking-[-0.02em] mb-5 md:mb-6">
-                  <span className="text-white">
-                    Where Developers
-                  </span>
-                  <span className="text-rose-500 block mt-1 md:mt-2">
-                    Connect & Collaborate
-                  </span>
+                  <span className="text-white">Where Developers</span>
+                  <span className="text-rose-500 sm:block inline">&nbsp;Connect & Collaborate</span>
                 </h1>
               </AnimatedSection>
 
@@ -379,7 +375,7 @@ export default function Home() {
               <div className="max-w-4xl mx-auto">
                 <Accordion type="single" collapsible className="w-full">
                   <AccordionItem value="item-1" className="border-b border-zinc-800/50">
-                    <AccordionTrigger className="py-4 text-lg font-medium text-zinc-100 hover:underline">
+                    <AccordionTrigger className="py-4 text-lg font-medium text-zinc-100 hover:underline text-left">
                       What is DevConnect?
                     </AccordionTrigger>
                     <AccordionContent className="text-sm text-zinc-400 pb-4">
@@ -388,7 +384,7 @@ export default function Home() {
                   </AccordionItem>
                   
                   <AccordionItem value="item-2" className="border-b border-zinc-800/50">
-                    <AccordionTrigger className="py-4 text-lg font-medium text-zinc-100 hover:underline">
+                    <AccordionTrigger className="py-4 text-lg font-medium text-zinc-100 hover:underline text-left">
                       How do I get started with DevConnect?
                     </AccordionTrigger>
                     <AccordionContent className="text-sm text-zinc-400 pb-4">
@@ -397,7 +393,7 @@ export default function Home() {
                   </AccordionItem>
                   
                   <AccordionItem value="item-3" className="border-b border-zinc-800/50">
-                    <AccordionTrigger className="py-4 text-lg font-medium text-zinc-100 hover:underline">
+                    <AccordionTrigger className="py-4 text-lg font-medium text-zinc-100 hover:underline text-left">
                       Is DevConnect free to use?
                     </AccordionTrigger>
                     <AccordionContent className="text-sm text-zinc-400 pb-4">
@@ -406,7 +402,7 @@ export default function Home() {
                   </AccordionItem>
                   
                   <AccordionItem value="item-4" className="border-b border-zinc-800/50">
-                    <AccordionTrigger className="py-4 text-lg font-medium text-zinc-100  hover:underline">
+                    <AccordionTrigger className="py-4 text-lg font-medium text-zinc-100 hover:underline text-left">
                       Can I integrate my GitHub projects with DevConnect?
                     </AccordionTrigger>
                     <AccordionContent className="text-sm text-zinc-400 pb-4">
@@ -415,7 +411,7 @@ export default function Home() {
                   </AccordionItem>
                   
                   <AccordionItem value="item-5" className="border-b border-zinc-800/50">
-                    <AccordionTrigger className="py-4 text-lg font-medium text-zinc-100 hover:underline">
+                    <AccordionTrigger className="py-4 text-lg font-medium text-zinc-100 hover:underline text-left">
                       How can DevConnect help my career as a developer?
                     </AccordionTrigger>
                     <AccordionContent className="text-sm text-zinc-400 pb-4">
