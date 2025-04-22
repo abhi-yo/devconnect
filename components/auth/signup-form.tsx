@@ -130,7 +130,7 @@ export default function SignUpForm() {
       setError(null)
       
       await signIn("github", { 
-        callbackUrl: "/onboarding",
+        callbackUrl: "/",
         redirect: true,
       })
     } catch (error) {
