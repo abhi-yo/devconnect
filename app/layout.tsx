@@ -25,6 +25,22 @@ export const metadata: Metadata = {
     icon: '/logo.png',
     apple: '/logo.png',
   },
+  openGraph: {
+    title: "DevConnect",
+    description: "Connect with developers",
+    url: "https://devconnect-social.vercel.app/",
+    siteName: "DevConnect",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "DevConnect OG Image",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
 }
 
 export default function RootLayout({
