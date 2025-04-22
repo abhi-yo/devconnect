@@ -2,26 +2,22 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // Handle WebSocket upgrade requests
-  const { pathname } = request.nextUrl;
-  
-  // Allow WebSocket connections for Socket.IO
-  if (
-    pathname.startsWith('/api/socket') && 
-    (
-      request.headers.get('upgrade') === 'websocket' || 
-      request.headers.get('connection')?.includes('upgrade') ||
-      pathname.includes('socket.io')
-    )
-  ) {
-    return NextResponse.next();
-  }
-
-  // For all other requests, continue as normal
+  // For all requests, continue as normal
+  // Add any future non-WebSocket middleware logic here
   return NextResponse.next();
 }
 
-// Configuration for middleware to run only on socket paths
+// Configuration for middleware
 export const config = {
-  matcher: ['/api/socket/:path*'],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * 
+     * It will now run on API routes like /api/auth/*
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
 }; 
