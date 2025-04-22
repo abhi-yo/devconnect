@@ -216,7 +216,7 @@ export default function Home() {
               </div>
               
               <div>
-                <Link href="/auth/login">
+                <Link href="/auth/signin">
                   <Button 
                     className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2 rounded-full text-sm font-medium transition-colors duration-200 border-0"
                   >
