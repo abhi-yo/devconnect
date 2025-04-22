@@ -177,9 +177,27 @@ export function ExplorePage() {
   const [totalItemsLoaded, setTotalItemsLoaded] = useState(0);
   const [totalItemsCount, setTotalItemsCount] = useState(0);
 
-  // Filter trending items based on selected source
+  // Use the existing searchQuery state for filtering
+  const filteredTopics = topicsQuery.data?.filter(topic => 
+    topic.name.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
+
+  const filteredDevelopers = developersQuery.data?.filter(dev => 
+    (dev.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+     dev.username.toLowerCase().includes(searchQuery.toLowerCase()))
+  ) || [];
+
+  // Filter trending items based on searchQuery AND selected source
   const filteredTrendingItems = trendingItems.filter(item => 
-    item.source.toLowerCase().includes(trendingSource.toLowerCase())
+    item.source.toLowerCase().includes(trendingSource.toLowerCase()) &&
+    (item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+     item.description?.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredResources = resources.filter(resource => 
+    resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    resource.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    resource.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
   
   // Determine if we have more items to load based on the source
@@ -471,7 +489,7 @@ export function ExplorePage() {
         <div className="relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search developers, topics, posts..."
+            placeholder="Filter trending, topics, developers, or resources..."
             className="pl-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -625,7 +643,7 @@ export function ExplorePage() {
           ) : (
             <>
               <div className="space-y-3">
-                {topicsQuery.data?.map((topic) => (
+                {filteredTopics.map((topic) => (
                   <Card key={topic.id} className="p-3">
                     <div className="flex items-center gap-3">
                       <div className="bg-primary/10 rounded-full p-2">
@@ -684,17 +702,17 @@ export function ExplorePage() {
           ) : (
             <>
               <div className="space-y-3">
-                {developersQuery.data?.map((dev) => (
+                {filteredDevelopers.map((dev) => (
                   <Card key={dev.id} className="p-3">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={dev.image || undefined} alt={dev.name} />
+                        <AvatarImage src={dev.image ?? undefined} alt={dev.name ?? dev.username} />
                         <AvatarFallback>
                           <User className="h-4 w-4" />
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <h3 className="text-sm font-medium">{dev.name}</h3>
+                        <h3 className="text-sm font-medium">{dev.name ?? dev.username}</h3>
                         <p className="text-xs text-muted-foreground">@{dev.username}</p>
                       </div>
                       <Button 
@@ -739,7 +757,7 @@ export function ExplorePage() {
         {/* Resources Tab */}
         <TabsContent value="resources">
           <div className="space-y-3">
-            {resources.map((resource) => {
+            {filteredResources.map((resource) => {
               const IconComponent = resourceIcons[resource.icon];
               return (
                 <Card key={resource.id} className="p-3 hover:bg-muted/50 transition-colors">

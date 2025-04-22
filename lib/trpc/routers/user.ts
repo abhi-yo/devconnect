@@ -1,7 +1,14 @@
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
-import { router, publicProcedure, protectedProcedure } from "@/lib/trpc/trpc"
+import { router, publicProcedure, protectedProcedure, type AuthenticatedContext } from "@/lib/trpc/trpc"
 import { hash, compare } from "bcrypt"
+import type { User as AuthUser } from "next-auth"
+
+// Define a type that mirrors ExtendedUser from auth.ts for assertion
+interface SessionUser extends AuthUser {
+  id: string
+  username?: string // username might not always be present depending on provider/token
+}
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -58,8 +65,85 @@ const deleteAccountSchema = z.object({
 })
 
 export const userRouter = router({
+  getPublicProfile: publicProcedure
+    .input(z.object({ username: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const { username } = input;
+      const sessionUser = ctx.session?.user as SessionUser | undefined;
+      const currentUserId = sessionUser?.id;
+
+      const user = await ctx.prisma.user.findUnique({
+        where: { username },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          image: true,
+          createdAt: true, // For Joined Date
+          profile: {
+            select: {
+              bio: true,
+              location: true,
+              website: true,
+              banner: true,
+              github: true, // Include github/twitter if needed
+              twitter: true,
+            },
+          },
+          _count: {
+            select: {
+              followers: true,
+              following: true,
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `User with username "${username}" not found.`,
+        });
+      }
+
+      // Check if the current session user is following this profile user
+      let isFollowing = false;
+      if (currentUserId && currentUserId !== user.id) {
+        const follow = await ctx.prisma.follow.findUnique({
+          where: {
+            followerId_followingId: {
+              followerId: currentUserId,
+              followingId: user.id,
+            },
+          },
+          select: { id: true }, // Only need to know if it exists
+        });
+        isFollowing = !!follow;
+      }
+
+      // Combine results into the expected structure
+      return {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        image: user.image,
+        joinedDate: user.createdAt.toISOString(), // Send as ISO string
+        bio: user.profile?.bio,
+        location: user.profile?.location,
+        website: user.profile?.website,
+        banner: user.profile?.banner,
+        github: user.profile?.github,
+        twitter: user.profile?.twitter,
+        followersCount: user._count.followers,
+        followingCount: user._count.following,
+        isFollowing,
+      };
+    }),
+
   getSuggestedUsers: publicProcedure.query(async ({ ctx }) => {
-    const userId = ctx.session?.user?.id
+    // Assert the type if user exists
+    const sessionUser = ctx.session?.user as SessionUser | undefined;
+    const userId = sessionUser?.id;
 
     // If user is logged in, exclude them and users they follow
     let excludeUserIds: string[] = []
@@ -97,28 +181,58 @@ export const userRouter = router({
     }))
   }),
 
-  toggleFollow: protectedProcedure.input(z.object({ userId: z.string() })).mutation(async ({ ctx, input }) => {
-    const { userId } = input
-    const currentUserId = ctx.user.id
+  searchUsers: publicProcedure
+    .input(z.object({ query: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const { query } = input;
+      if (query.length < 2) {
+        // Return empty array if query is too short to avoid excessive searching
+        return [];
+      }
 
-    if (userId === currentUserId) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "You cannot follow yourself",
-      })
-    }
-
-    const existingFollow = await ctx.prisma.follow.findUnique({
-      where: {
-        followerId_followingId: {
-          followerId: currentUserId,
-          followingId: userId,
+      const users = await ctx.prisma.user.findMany({
+        where: {
+          OR: [
+            {
+              name: {
+                contains: query,
+                mode: 'insensitive', // Case-insensitive search
+              },
+            },
+            {
+              username: {
+                contains: query,
+                mode: 'insensitive',
+              },
+            },
+          ],
         },
-      },
-    })
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          image: true,
+        },
+        take: 10, // Limit the number of results
+      });
 
-    if (existingFollow) {
-      await ctx.prisma.follow.delete({
+      return users;
+    }),
+
+  toggleFollow: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = input
+      const currentUserId = ctx.user.id
+
+      if (userId === currentUserId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You cannot follow yourself",
+        })
+      }
+
+      const existingFollow = await ctx.prisma.follow.findUnique({
         where: {
           followerId_followingId: {
             followerId: currentUserId,
@@ -126,17 +240,27 @@ export const userRouter = router({
           },
         },
       })
-      return { following: false }
-    } else {
-      await ctx.prisma.follow.create({
-        data: {
-          followerId: currentUserId,
-          followingId: userId,
-        },
-      })
-      return { following: true }
-    }
-  }),
+
+      if (existingFollow) {
+        await ctx.prisma.follow.delete({
+          where: {
+            followerId_followingId: {
+              followerId: currentUserId,
+              followingId: userId,
+            },
+          },
+        })
+        return { following: false }
+      } else {
+        await ctx.prisma.follow.create({
+          data: {
+            followerId: currentUserId,
+            followingId: userId,
+          },
+        })
+        return { following: true }
+      }
+    }),
 
   updateProfile: protectedProcedure.input(profileSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user.id
@@ -330,24 +454,21 @@ export const userRouter = router({
   updatePrivacySettings: protectedProcedure
     .input(privacySettingsSchema)
     .mutation(async ({ ctx, input }) => {
-      // For now, we'll just return the settings as if they were saved
-      // In a real app, you'd save these to the database
+      const userId = ctx.user.id
       return input
     }),
 
   updateAppearanceSettings: protectedProcedure
     .input(appearanceSettingsSchema)
     .mutation(async ({ ctx, input }) => {
-      // For now, we'll just return the settings as if they were saved
-      // In a real app, you'd save these to the database
+      const userId = ctx.user.id
       return input
     }),
 
   updateSecuritySettings: protectedProcedure
     .input(securitySettingsSchema)
     .mutation(async ({ ctx, input }) => {
-      // For now, we'll just return the settings as if they were saved
-      // In a real app, you'd save these to the database
+      const userId = ctx.user.id
       return input
     }),
 
@@ -355,6 +476,7 @@ export const userRouter = router({
     .input(deleteAccountSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id
+      const { password, reason } = input
 
       // Verify password
       const user = await ctx.prisma.user.findUnique({
@@ -369,7 +491,7 @@ export const userRouter = router({
         })
       }
 
-      const isPasswordValid = await compare(input.password, user.password)
+      const isPasswordValid = await compare(password, user.password)
 
       if (!isPasswordValid) {
         throw new TRPCError({

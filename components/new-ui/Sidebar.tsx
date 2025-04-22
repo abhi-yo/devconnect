@@ -20,16 +20,26 @@ interface SidebarProps {
   className?: string;
 }
 
+// Define the expected user type from the session
+interface SessionUser {
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  username?: string; // Add username here
+}
+
 export function Sidebar({ className = "" }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const user = session?.user as SessionUser | undefined; // Assert the type here
   
   // Navigation items
   const navItems = [
     { title: "Home", href: "/", icon: Home },
     { title: "Explore", href: "/explore", icon: Compass },
     { title: "Notifications", href: "/notifications", icon: Bell },
-    { title: "Profile", href: "/profile", icon: User },
+    // Dynamically set profile link based on session username
+    { title: "Profile", href: user?.username ? `/profile/${user.username}` : "/profile", icon: User }, 
     { title: "Settings", href: "/settings", icon: Settings },
   ];
   

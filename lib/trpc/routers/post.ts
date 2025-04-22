@@ -2,12 +2,12 @@ import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { router, publicProcedure, protectedProcedure } from "@/lib/trpc/trpc"
 import { createNotification } from "./notification"
+import type { User as AuthUser } from "next-auth" // Import base User type
 
-interface SessionUser {
-  id: string;
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
+// Define a type that mirrors ExtendedUser from auth.ts for assertion
+interface SessionUser extends AuthUser {
+  id: string
+  username?: string 
 }
 
 // Helper function to truncate text
@@ -529,5 +529,138 @@ export const postRouter = router({
 
       return { success: true, postId: comment.postId }
     }),
+
+  getFollowingPosts: protectedProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).default(10),
+        cursor: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { limit, cursor } = input;
+      const currentUserId = ctx.user.id;
+
+      // Get IDs of users the current user is following
+      const following = await ctx.prisma.follow.findMany({
+        where: { followerId: currentUserId },
+        select: { followingId: true },
+      });
+      const followingIds = following.map((f) => f.followingId);
+
+      if (followingIds.length === 0) {
+        // If the user follows no one, return empty results immediately
+        return { items: [], nextCursor: undefined };
+      }
+
+      // Fetch posts from followed users
+      const posts = await ctx.prisma.post.findMany({
+        where: { 
+          authorId: { in: followingIds } 
+        },
+        take: limit + 1, // Get one extra to check for next cursor
+        cursor: cursor ? { id: cursor } : undefined,
+        orderBy: { createdAt: "desc" },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              image: true,
+            },
+          },
+          _count: {
+            select: {
+              likes: true,
+              comments: true,
+            },
+          },
+        },
+      });
+
+      let nextCursor: typeof cursor | undefined = undefined;
+      if (posts.length > limit) {
+        const nextItem = posts.pop(); // Remove the extra item
+        nextCursor = nextItem!.id;
+      }
+
+      // Check which posts the current user has liked
+      const postIds = posts.map((post) => post.id);
+      const likes = await ctx.prisma.like.findMany({
+        where: {
+          postId: { in: postIds },
+          userId: currentUserId,
+        },
+        select: {
+          postId: true,
+        },
+      });
+      const likedPostIds = new Set(likes.map((like) => like.postId));
+
+      const postsWithLikedStatus = posts.map((post) => ({
+        ...post,
+        likedByMe: likedPostIds.has(post.id),
+      }));
+
+      return {
+        items: postsWithLikedStatus,
+        nextCursor,
+      };
+    }),
+
+  getPostById: publicProcedure
+    .input(z.object({ postId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const { postId } = input;
+      // Assert the type if user exists
+      const sessionUser = ctx.session?.user as SessionUser | undefined;
+      const currentUserId = sessionUser?.id;
+
+      const post = await ctx.prisma.post.findUnique({
+        where: { id: postId },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              image: true,
+            },
+          },
+          _count: {
+            select: {
+              likes: true,
+              comments: true,
+            },
+          },
+        },
+      });
+
+      if (!post) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Post not found" });
+      }
+
+      let likedByMe = false;
+      if (currentUserId) {
+        const like = await ctx.prisma.like.findUnique({
+          where: {
+            userId_postId: {
+              userId: currentUserId,
+              postId: post.id,
+            },
+          },
+          select: { id: true }, // Only need to know if it exists
+        });
+        likedByMe = !!like;
+      }
+
+      return {
+        ...post,
+        likedByMe,
+      };
+    }),
+
+  // Add other post-related procedures here...
 })
 

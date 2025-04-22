@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,159 +9,317 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Sun, Moon, Monitor } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { User, Sun, Moon, Monitor, Upload, Loader2, Image as ImageIcon } from "lucide-react";
 import { useTheme } from "next-themes";
+import { trpc } from "@/lib/trpc/client";
+import toast from 'react-hot-toast';
+import { type AppRouter } from "@/lib/trpc/root";
+import { type inferRouterOutputs, type inferRouterInputs } from "@trpc/server";
 
-interface ProfileSettings {
-  name: string;
-  username: string;
-  bio: string;
-  email: string;
-  location: string;
-  website: string;
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type RouterInputs = inferRouterInputs<AppRouter>;
+
+type ProfileSettingsData = RouterOutputs["user"]["getSettings"]["profile"];
+type NotificationSettingsData = RouterOutputs["user"]["getSettings"]["notifications"];
+
+type UpdateProfileInput = RouterInputs["user"]["updateProfile"];
+type UpdateNotificationsInput = RouterInputs["user"]["updateNotificationSettings"];
+
+interface SessionUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  username?: string;
 }
 
-interface NotificationSettings {
-  emailNotifications: boolean;
-  emailDigest: boolean;
-  emailComments: boolean;
-  emailMentions: boolean;
-  browserNotifications: boolean;
-  browserLikes: boolean;
-  browserComments: boolean;
-  browserFollows: boolean;
+interface EditProfileImagesDialogProps {
+  profileData: ProfileSettingsData | null;
+  updateProfileMutation: ReturnType<typeof trpc.user.updateProfile.useMutation>;
+}
+
+function EditProfileImagesDialog({ 
+  profileData,
+  updateProfileMutation,
+}: EditProfileImagesDialogProps) {
+  const [imageUrl, setImageUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+
+  useEffect(() => {
+    if (profileData) {
+        setImageUrl(profileData.image ?? "");
+        setBannerUrl(profileData.banner ?? "");
+    }
+  }, [profileData]);
+
+  const handleSaveChanges = () => {
+    if (!profileData) return;
+
+    const isValidUrl = (url: string) => url === "" || url.startsWith('http://') || url.startsWith('https://');
+
+    if (!isValidUrl(imageUrl)) {
+      toast.error("Invalid Profile Picture URL. Must start with http:// or https://");
+      return;
+    }
+    if (!isValidUrl(bannerUrl)) {
+      toast.error("Invalid Banner Image URL. Must start with http:// or https://");
+      return;
+    }
+
+    const updateData: UpdateProfileInput = { 
+        name: profileData.name ?? "",
+        bio: profileData.bio ?? null,
+        location: profileData.location ?? null,
+        website: profileData.website ?? null,
+        github: profileData.github ?? null,
+        twitter: profileData.twitter ?? null,
+        image: imageUrl || null,
+        banner: bannerUrl || null,
+    };
+
+    updateProfileMutation.mutate(updateData, {
+        onSuccess: () => {
+            toast.success("Profile images updated successfully!");
+        },
+    });
+  };
+
+  return (
+    <DialogContent className="sm:max-w-[425px]">
+      <DialogHeader>
+        <DialogTitle>Edit Profile Images</DialogTitle>
+        <DialogDescription>
+          Update your profile picture and banner image. Enter the URLs for your images.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="grid gap-4 py-4">
+        <div className="space-y-2">
+          <label htmlFor="imageUrl" className="text-sm font-medium">
+            Profile Picture URL
+          </label>
+          <Input
+            id="imageUrl"
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            placeholder="https://example.com/avatar.jpg"
+            disabled={updateProfileMutation.isLoading}
+          />
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="bannerUrl" className="text-sm font-medium">
+            Banner Image URL
+          </label>
+          <Input
+            id="bannerUrl"
+            value={bannerUrl}
+            onChange={(e) => setBannerUrl(e.target.value)}
+            placeholder="https://example.com/banner.jpg"
+            disabled={updateProfileMutation.isLoading}
+          />
+        </div>
+      </div>
+      <DialogFooter>
+         <DialogClose asChild>
+           <Button type="button" variant="outline" disabled={updateProfileMutation.isLoading}>Cancel</Button>
+         </DialogClose>
+        <Button 
+          type="button" 
+          onClick={handleSaveChanges} 
+          disabled={updateProfileMutation.isLoading}
+         >
+          {updateProfileMutation.isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : null}
+          Save Changes
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
 }
 
 export function SettingsPage() {
   const { data: session } = useSession();
+  const user = session?.user as SessionUser | undefined;
   const { theme, setTheme } = useTheme();
+  const utils = trpc.useUtils();
   
-  const [profileForm, setProfileForm] = useState<ProfileSettings>({
-    name: "",
-    username: "",
-    bio: "",
-    email: "",
-    location: "",
-    website: ""
-  });
+  const [profileForm, setProfileForm] = useState<ProfileSettingsData | null>(null);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettingsData | null>(null);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
-    emailNotifications: false,
-    emailDigest: false,
-    emailComments: false,
-    emailMentions: false,
-    browserNotifications: false,
-    browserLikes: false,
-    browserComments: false,
-    browserFollows: false
-  });
-  
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [isSavingNotifications, setIsSavingNotifications] = useState(false);
-  
-  // Fetch profile settings
-  useEffect(() => {
-    const fetchProfileSettings = async () => {
-      try {
-        setIsLoadingProfile(true);
-        const response = await fetch('/api/settings/profile');
-        if (response.ok) {
-          const data = await response.json();
-          setProfileForm(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch profile settings:", error);
-      } finally {
-        setIsLoadingProfile(false);
+  const { data: initialSettingsData, isLoading: isLoadingSettings } = trpc.user.getSettings.useQuery(undefined, {
+    onSuccess: (data: RouterOutputs["user"]["getSettings"] | undefined) => {
+      if (data) {
+        setProfileForm(data.profile);
+        setNotificationSettings(data.notifications);
       }
-    };
+    },
+    onError: (error: any) => {
+      console.error("Failed to fetch settings:", error);
+      toast.error("Failed to load settings.");
+    },
+    refetchOnWindowFocus: false,
+  });
 
-    fetchProfileSettings();
-  }, []);
+  const updateProfileMutation = trpc.user.updateProfile.useMutation({
+    onSuccess: () => {
+      toast.success("Profile updated successfully!");
+      utils.user.getSettings.invalidate();
+    },
+    onError: (error: any) => {
+      console.error("Error saving profile settings:", error);
+      toast.error("Failed to update profile. Please try again.");
+    },
+  });
 
-  // Fetch notification settings
-  useEffect(() => {
-    const fetchNotificationSettings = async () => {
-      try {
-        setIsLoadingNotifications(true);
-        const response = await fetch('/api/settings/notifications');
-        if (response.ok) {
-          const data = await response.json();
-          setNotificationSettings(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch notification settings:", error);
-      } finally {
-        setIsLoadingNotifications(false);
-      }
-    };
-
-    fetchNotificationSettings();
-  }, []);
+  const updateNotificationsMutation = trpc.user.updateNotificationSettings.useMutation({
+    onSuccess: () => {
+      toast.success("Notifications updated successfully!");
+      utils.user.getSettings.invalidate();
+    },
+    onError: (error: any) => {
+      console.error("Error saving notification settings:", error);
+      toast.error("Failed to update notifications. Please try again.");
+    },
+  });
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setProfileForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setProfileForm((prev: ProfileSettingsData | null) => (prev ? { ...prev, [name]: value } : null));
   };
 
-  const handleNotificationChange = (setting: keyof NotificationSettings) => {
-    setNotificationSettings(prev => ({
-      ...prev,
-      [setting]: !prev[setting]
-    }));
-  };
+  const handleNotificationChange = (setting: keyof NotificationSettingsData) => {
+    setNotificationSettings((prev: NotificationSettingsData | null) => {
+        if (!prev) return null;
+        const newState = { ...prev } as NotificationSettingsData;
+        (newState[setting] as boolean) = !prev[setting];
+        
+        if (setting === 'emailNotifications' && !newState.emailNotifications) {
+            newState.mentionNotifications = false;
+            newState.followNotifications = false;
+            newState.messageNotifications = false;
+        }
+        return newState;
+    });
+};
 
-  const saveProfileSettings = async () => {
-    try {
-      setIsSavingProfile(true);
-      const response = await fetch('/api/settings/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(profileForm)
-      });
-      
-      if (!response.ok) {
-        console.error("Failed to save profile settings");
-      }
-    } catch (error) {
-      console.error("Error saving profile settings:", error);
-    } finally {
-      setIsSavingProfile(false);
+  const saveProfileSettings = () => {
+    if (profileForm) {
+      const updateData: UpdateProfileInput = { 
+          name: profileForm.name ?? "",
+          bio: profileForm.bio ?? null,
+          location: profileForm.location ?? null,
+          website: profileForm.website ?? null,
+          github: profileForm.github ?? null,
+          twitter: profileForm.twitter ?? null,
+          image: profileForm.image ?? null,
+          banner: profileForm.banner ?? null,
+      };
+
+      updateProfileMutation.mutate(updateData);
     }
   };
 
-  const saveNotificationSettings = async () => {
-    try {
-      setIsSavingNotifications(true);
-      const response = await fetch('/api/settings/notifications', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(notificationSettings)
-      });
-      
-      if (!response.ok) {
-        console.error("Failed to save notification settings");
-      }
-    } catch (error) {
-      console.error("Error saving notification settings:", error);
-    } finally {
-      setIsSavingNotifications(false);
+  const saveNotificationSettings = () => {
+    if (notificationSettings) {
+      updateNotificationsMutation.mutate(notificationSettings as UpdateNotificationsInput);
     }
   };
+  
+  const ProfileSkeleton = () => (
+    <Card className="p-6">
+      <div className="flex items-center gap-4 mb-8">
+        <Skeleton className="h-16 w-16 rounded-full" />
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-8 w-28" />
+        </div>
+      </div>
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-16 mb-1" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-20 mb-1" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-12 mb-1" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-16 mb-1" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-20 mb-1" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-20 mb-1" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Skeleton className="h-10 w-28" />
+        </div>
+      </div>
+    </Card>
+  );
+
+  const NotificationsSkeleton = () => (
+    <Card className="p-6">
+      <Skeleton className="h-6 w-48 mb-8" />
+      <div className="space-y-6">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <Skeleton className="h-6 w-12 rounded-full" />
+          </div>
+        ))}
+      </div>
+      <Skeleton className="h-6 w-56 mt-10 mb-8" />
+      <div className="space-y-6">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <Skeleton className="h-6 w-12 rounded-full" />
+          </div>
+        ))}
+      </div>
+       <div className="flex justify-end mt-8">
+          <Skeleton className="h-10 w-28" />
+      </div>
+    </Card>
+  );
 
   return (
-    <div className="w-full max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
+    <div className="w-full max-w-3xl mx-auto py-8">
+      <h1 className="text-2xl font-bold mb-8">Settings</h1>
       
+      <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="profile">Profile</TabsTrigger>
@@ -169,37 +327,40 @@ export function SettingsPage() {
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
         </TabsList>
         
-        {/* Profile Settings */}
         <TabsContent value="profile">
-          <Card className="p-6">
-            {isLoadingProfile ? (
-              <div className="py-8 text-center">
-                <p className="text-muted-foreground">Loading profile settings...</p>
-              </div>
+            {isLoadingSettings || !profileForm ? (
+              <ProfileSkeleton />
             ) : (
-              <>
-                <div className="flex items-center gap-4 mb-6">
+            <Card className="p-6">
+                <div className="flex items-center gap-4 mb-8">
                   <Avatar className="h-16 w-16">
                     <AvatarImage 
-                      src={session?.user?.image || undefined} 
-                      alt={session?.user?.name || "User"} 
+                        src={profileForm.image || user?.image || undefined} 
+                        alt={profileForm.name || user?.name || "User"}
+                        key={profileForm.image || user?.image}
                     />
                     <AvatarFallback>
                       <User className="h-8 w-8" />
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h2 className="text-lg font-medium">Profile Picture</h2>
+                      <h2 className="text-lg font-medium">Profile Info & Images</h2>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Upload a new profile picture
-                    </p>
-                    <Button variant="outline" size="sm">
-                      Change Picture
+                        Edit your profile details or update image URLs.
+                      </p>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                        >
+                          <ImageIcon className="mr-2 h-4 w-4" />
+                          Edit Images
                     </Button>
+                      </DialogTrigger>
                   </div>
                 </div>
                 
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label htmlFor="name" className="text-sm font-medium">
@@ -208,7 +369,7 @@ export function SettingsPage() {
                       <Input 
                         id="name"
                         name="name"
-                        value={profileForm.name}
+                        value={profileForm.name ?? ''}
                         onChange={handleProfileChange}
                       />
                     </div>
@@ -220,8 +381,8 @@ export function SettingsPage() {
                       <Input 
                         id="username"
                         name="username"
-                        value={profileForm.username}
-                        onChange={handleProfileChange}
+                          value={user?.username ?? ''}
+                          disabled
                       />
                     </div>
                   </div>
@@ -234,7 +395,7 @@ export function SettingsPage() {
                       id="bio"
                       name="bio"
                       rows={4}
-                      value={profileForm.bio}
+                      value={profileForm.bio ?? ''}
                       onChange={handleProfileChange}
                     />
                   </div>
@@ -247,8 +408,8 @@ export function SettingsPage() {
                       id="email"
                       name="email"
                       type="email"
-                      value={profileForm.email}
-                      onChange={handleProfileChange}
+                      value={user?.email ?? ''}
+                      disabled
                     />
                   </div>
                   
@@ -260,7 +421,7 @@ export function SettingsPage() {
                       <Input 
                         id="location"
                         name="location"
-                        value={profileForm.location}
+                        value={profileForm.location ?? ''}
                         onChange={handleProfileChange}
                       />
                     </div>
@@ -272,7 +433,7 @@ export function SettingsPage() {
                       <Input 
                         id="website"
                         name="website"
-                        value={profileForm.website}
+                        value={profileForm.website ?? ''}
                         onChange={handleProfileChange}
                       />
                     </div>
@@ -281,29 +442,27 @@ export function SettingsPage() {
                   <div className="flex justify-end">
                     <Button 
                       onClick={saveProfileSettings}
-                      disabled={isSavingProfile}
+                        disabled={updateProfileMutation.isLoading || !profileForm}
                     >
-                      {isSavingProfile ? "Saving..." : "Save Changes"}
+                        {updateProfileMutation.isLoading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : null}
+                        Save Profile Info
                     </Button>
                   </div>
                 </div>
-              </>
+              </Card>
             )}
-          </Card>
         </TabsContent>
         
-        {/* Notification Settings */}
         <TabsContent value="notifications">
-          <Card className="p-6">
-            {isLoadingNotifications ? (
-              <div className="py-8 text-center">
-                <p className="text-muted-foreground">Loading notification settings...</p>
-              </div>
+            {isLoadingSettings || !notificationSettings ? (
+              <NotificationsSkeleton />
             ) : (
-              <>
-                <h2 className="text-lg font-bold mb-6">Email Notifications</h2>
+            <Card className="p-6">
+                <h2 className="text-lg font-bold mb-8">Email Notifications</h2>
                 
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <label className="text-sm font-medium">
@@ -321,56 +480,24 @@ export function SettingsPage() {
                   
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <label className="text-sm font-medium">
-                        Weekly Digest
-                      </label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive a weekly summary of activity
-                      </p>
-                    </div>
-                    <Switch
-                      checked={notificationSettings.emailDigest}
-                      onCheckedChange={() => handleNotificationChange('emailDigest')}
-                      disabled={!notificationSettings.emailNotifications}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <label className="text-sm font-medium">
-                        Comments
-                      </label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive emails when someone comments on your posts
-                      </p>
-                    </div>
-                    <Switch
-                      checked={notificationSettings.emailComments}
-                      onCheckedChange={() => handleNotificationChange('emailComments')}
-                      disabled={!notificationSettings.emailNotifications}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <label className="text-sm font-medium">
+                      <label className={`text-sm font-medium ${!notificationSettings.emailNotifications ? 'text-muted-foreground/50' : ''}`}>
                         Mentions
                       </label>
-                      <p className="text-sm text-muted-foreground">
+                      <p className={`text-sm ${!notificationSettings.emailNotifications ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
                         Receive emails when someone mentions you
                       </p>
                     </div>
                     <Switch
-                      checked={notificationSettings.emailMentions}
-                      onCheckedChange={() => handleNotificationChange('emailMentions')}
+                      checked={notificationSettings.mentionNotifications}
+                      onCheckedChange={() => handleNotificationChange('mentionNotifications')}
                       disabled={!notificationSettings.emailNotifications}
                     />
                   </div>
                 </div>
                 
-                <h2 className="text-lg font-bold mt-8 mb-6">Browser Notifications</h2>
+                <h2 className="text-lg font-bold mt-10 mb-8">Browser Notifications</h2>
                 
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <label className="text-sm font-medium">
@@ -385,108 +512,67 @@ export function SettingsPage() {
                       onCheckedChange={() => handleNotificationChange('browserNotifications')}
                     />
                   </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <label className="text-sm font-medium">
-                        Likes
-                      </label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive notifications when someone likes your posts
-                      </p>
-                    </div>
-                    <Switch
-                      checked={notificationSettings.browserLikes}
-                      onCheckedChange={() => handleNotificationChange('browserLikes')}
-                      disabled={!notificationSettings.browserNotifications}
-                    />
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <label className="text-sm font-medium">
-                        Comments
-                      </label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive notifications when someone comments on your posts
-                      </p>
-                    </div>
-                    <Switch
-                      checked={notificationSettings.browserComments}
-                      onCheckedChange={() => handleNotificationChange('browserComments')}
-                      disabled={!notificationSettings.browserNotifications}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <label className="text-sm font-medium">
-                        Follows
-                      </label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive notifications when someone follows you
-                      </p>
-                    </div>
-                    <Switch
-                      checked={notificationSettings.browserFollows}
-                      onCheckedChange={() => handleNotificationChange('browserFollows')}
-                      disabled={!notificationSettings.browserNotifications}
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end mt-6">
+                <div className="flex justify-end mt-8">
                     <Button 
                       onClick={saveNotificationSettings}
-                      disabled={isSavingNotifications}
+                    disabled={updateNotificationsMutation.isLoading || !notificationSettings}
                     >
-                      {isSavingNotifications ? "Saving..." : "Save Changes"}
+                    {updateNotificationsMutation.isLoading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    {updateNotificationsMutation.isLoading ? "Saving..." : "Save Changes"}
                     </Button>
                   </div>
-                </div>
-              </>
+              </Card>
             )}
-          </Card>
         </TabsContent>
         
-        {/* Appearance Settings */}
         <TabsContent value="appearance">
           <Card className="p-6">
             <h2 className="text-lg font-bold mb-6">Theme Preferences</h2>
             
-            <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div 
-                className={`p-4 border rounded-lg text-center cursor-pointer transition-all ${
-                  theme === 'light' ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground'
+                  className={`p-4 border rounded-lg text-center cursor-pointer transition-all flex flex-col items-center justify-center aspect-square sm:aspect-auto ${
+                    theme === 'light' ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/50'
                 }`}
                 onClick={() => setTheme('light')}
               >
-                <Sun className="h-6 w-6 mx-auto mb-2" />
+                  <Sun className="h-6 w-6 mb-2" />
                 <p className="font-medium">Light</p>
               </div>
               
               <div 
-                className={`p-4 border rounded-lg text-center cursor-pointer transition-all ${
-                  theme === 'dark' ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground'
+                  className={`p-4 border rounded-lg text-center cursor-pointer transition-all flex flex-col items-center justify-center aspect-square sm:aspect-auto ${ 
+                    theme === 'dark' ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/50'
                 }`}
                 onClick={() => setTheme('dark')}
               >
-                <Moon className="h-6 w-6 mx-auto mb-2" />
+                  <Moon className="h-6 w-6 mb-2" />
                 <p className="font-medium">Dark</p>
               </div>
               
               <div 
-                className={`p-4 border rounded-lg text-center cursor-pointer transition-all ${
-                  theme === 'system' ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground'
+                  className={`p-4 border rounded-lg text-center cursor-pointer transition-all flex flex-col items-center justify-center aspect-square sm:aspect-auto ${ 
+                    theme === 'system' ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/50'
                 }`}
                 onClick={() => setTheme('system')}
               >
-                <Monitor className="h-6 w-6 mx-auto mb-2" />
+                  <Monitor className="h-6 w-6 mb-2" />
                 <p className="font-medium">System</p>
               </div>
             </div>
           </Card>
         </TabsContent>
       </Tabs>
+
+        <EditProfileImagesDialog 
+          profileData={profileForm}
+          updateProfileMutation={updateProfileMutation}
+        />
+      </Dialog>
     </div>
   );
 } 
