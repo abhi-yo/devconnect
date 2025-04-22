@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Github, Code, Users, MessageSquare, Bell, Compass, Heart, Lock, ArrowRight, CheckCircle } from "lucide-react"
+import { Github, Code, Users, MessageSquare, Bell, Compass, Heart, Lock, ArrowRight, CheckCircle, HelpCircle, Home as HomeIcon, Package, DollarSign } from "lucide-react"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import Link from "next/link"
 import { GridBackground } from "@/components/ui/grid-background"
@@ -21,6 +21,23 @@ import { Squares } from "@/components/ui/squares-background"
 import { type BentoItem } from "@/components/ui/bento-grid"
 import { cn } from "@/lib/utils"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
+import { FloatingNav } from "@/components/ui/floating-navbar"
+import { LampContainer } from "@/components/ui/lamp"
+import { Instrument_Serif, Inter } from 'next/font/google';
+import Image from "next/image"
+
+// Setup Instrument Serif font with italic style
+const instrumentSerif = Instrument_Serif({
+  weight: ['400'],
+  style: ['normal', 'italic'],
+  subsets: ['latin'],
+});
+
+// Setup Inter font
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+});
 
 // Feature Card Component
 function FeatureCard({ 
@@ -146,81 +163,159 @@ const featureItems: BentoItem[] = [
 ];
 
 export default function Home() {
+  // Define navigation items for the FloatingNav
+  const navItems = [
+    {
+      name: "Home",
+      link: "/",
+      icon: <HomeIcon className="h-4 w-4 text-zinc-300" />,
+    },
+    {
+      name: "Features",
+      link: "#features", // Assuming you add an id="features" to the Features section
+      icon: <Package className="h-4 w-4 text-zinc-300" />,
+    },
+    {
+      name: "Pricing",
+      link: "#pricing", // Assuming you add an id="pricing" to the Pricing section
+      icon: <DollarSign className="h-4 w-4 text-zinc-300" />,
+    },
+    {
+      name: "FAQ",
+      link: "#faq", // Assuming you add an id="faq" to the FAQ section
+      icon: <HelpCircle className="h-4 w-4 text-zinc-300" />,
+    },
+  ];
+
   return (
     <SmoothScrollProvider>
       <div className="min-h-screen bg-zinc-950 text-white">
-        {/* Hero Section */}
-        <section className="relative py-16 md:py-24 lg:py-32 overflow-hidden">
-          {/* Squares Background */}
-          <div className="absolute inset-0 z-10">
-            <Squares
-              direction="diagonal"
-              speed={0.3}
-              squareSize={50}
-              borderColor="#1a1a1a"
-              hoverFillColor="#1a1a1a"
-              className="opacity-40"
-            />
+        {/* Fine-tuned navbar position */}
+        <header className="fixed top-0 left-0 right-0 z-50 border-b border-zinc-800/50 bg-zinc-950/10 backdrop-blur-md">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16 py-3">
+              <div className="flex items-center">
+                <Link href="/" className="flex items-center gap-2">
+                  <Image src="/logo.png" alt="DevConnect Logo" width={52} height={52} className="w-8 h-8" />
+                  <span className="text-xl text-white font-medium">DevConnect</span>
+                </Link>
+              </div>
+              
+              <div className="hidden md:flex md:items-center md:justify-center space-x-8">
+                <nav className="flex items-center space-x-8">
+                  {navItems.map((item) => (
+                    <Link 
+                      key={item.name} 
+                      href={item.link}
+                      className="text-zinc-200 hover:text-white text-sm font-medium transition-colors"
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </nav>
+              </div>
+              
+              <div>
+                <Link href="/auth/login">
+                  <Button 
+                    className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2 rounded-full text-sm font-medium transition-colors duration-200 border-0"
+                  >
+                    Login
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Adjusted padding for better balance */}
+        <section className="relative pt-40 pb-20 md:pt-48 md:pb-28 lg:pt-52 lg:pb-36 overflow-hidden">
+          {/* Refined bottom glow effect */}
+          <div className="absolute inset-x-0 bottom-0 z-0 flex items-end justify-center pointer-events-none -mb-40">
+            <div className="h-40 w-[40rem] rounded-full bg-rose-500/30 opacity-200 blur-[90px] contrast-[1.2]" />
+          </div>
+          
+          {/* Grid pattern background */}
+          <div className="absolute inset-0 z-0 opacity-50" 
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64' fill='none' stroke='rgb(255 255 255 / 0.07)'%3e%3cpath d='M0 .5H63.5V64'/%3e%3c/svg%3e")`,
+              backgroundSize: '64px 64px'
+            }}
+          >
           </div>
 
-          {/* Gradient Effect - Enhanced rose tones - Desktop only */}
-          <div className="absolute inset-x-0 top-0 flex items-start justify-center z-0 hidden sm:flex">
-            {/* Rose glow */}
-            <div className="absolute h-40 w-[28rem] translate-y-[350%] rounded-full bg-rose-500/50 opacity-100 blur-[100px]" />
-          </div>
-
-          {/* Mobile-specific background - simpler alternative */}
-          <div className="absolute inset-0 sm:hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-rose-950/30 to-zinc-950 opacity-50" />
-          </div>
-
-          {/* Content - Red accents */}
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
             <div className="max-w-3xl mx-auto text-center">
               <AnimatedSection delay={0.1}>
-                <div className="flex justify-center mb-6 md:mb-8">
-                  <ShinyButton>
-                    <span className="flex items-center space-x-2 sm:space-x-3 text-[11px] sm:text-[13px] font-[350] py-1 sm:py-1.5">
-                      <span>Early Access Now Available</span>
+                <div className="flex justify-center mb-10 md:mb-12">
+                  <div className="bg-zinc-800/50 backdrop-blur-md px-4 py-1 rounded-full border border-zinc-700/30 shadow-sm">
+                    <span className="flex items-center space-x-2 sm:space-x-3 text-[11px] sm:text-[13px] font-[350]">
+                      <span className="text-zinc-100">Early Access Now Available</span>
                       <span className="h-3 w-[1px] bg-zinc-700/50" />
-                      <span>Limited Spots</span>
+                      <span className="text-rose-300">Limited Spots</span>
                     </span>
-                  </ShinyButton>
+                  </div>
                 </div>
               </AnimatedSection>
 
-              <AnimatedSection delay={0.2}>
-                <h1 className="font-space-grotesk text-4xl sm:text-4xl md:text-5xl lg:text-6xl leading-[1.15] md:leading-[1.1] font-bold tracking-[-0.02em] mb-5 md:mb-6">
-                  <span className="text-white">Where Developers</span>
-                  <span className="text-rose-500 sm:block inline">&nbsp;Connect & Collaborate</span>
-                </h1>
+              <AnimatedSection delay={0.2} className="relative z-10">
+                <div className="relative max-w-3xl mx-auto">
+                  
+                  <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-[1.1] md:leading-[1.05] font-medium mb-8 md:mb-10">
+                    <motion.span 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.8, delay: 0.3 }}
+                      className={`${inter.className} text-white tracking-tight inline-block transform font-semibold`}
+                    >
+                      Where
+                    </motion.span>{" "}
+                    <motion.span 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.8, delay: 0.4 }}
+                      className={instrumentSerif.className}
+                      style={{ fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.01em', fontSize: '1.1em' }}
+                    >
+                      Developers
+                    </motion.span>
+                    <br className="hidden md:block"/>
+                    <motion.span
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.8, delay: 0.5 }}
+                      className={`${inter.className} text-rose-500 tracking-tight mt-3 inline-block font-semibold`}
+                    >
+                      Connect Collaborate
+                    </motion.span>
+                  </h1>
+                  
+                </div>
               </AnimatedSection>
 
               <AnimatedSection delay={0.3}>
-                <p className="font-inter text-sm md:text-[15px] text-zinc-400 mb-8 md:mb-10 max-w-md mx-auto font-[350] leading-relaxed">
-                  Join a thriving community where passionate developers share ideas,
-                  collaborate on projects, and build the future together.
+                <p className={`${inter.className} text-base text-zinc-300 mb-12 md:mb-16 max-w-xl mx-auto font-[350] leading-relaxed`}>
+                  Join a thriving community where passionate developers share
+                  ideas, collaborate on projects, and build the future together.
                 </p>
               </AnimatedSection>
 
               <AnimatedSection delay={0.4}>
-                <div className="flex justify-center gap-3 md:gap-4 mb-10 md:mb-16">
+                <div className="flex justify-center items-center gap-6 md:gap-8 mb-12 md:mb-16">
                   <Link href="/auth/signup">
                     <Button 
                       variant="outline" 
-                      className="h-9 sm:h-10 text-[13px] font-[450] px-4 sm:px-5 w-[120px] bg-zinc-100 text-zinc-950 hover:bg-zinc-950 transition-all duration-200 backdrop-blur-sm"
+                      className="h-12 sm:h-12 text-[14px] font-medium px-8 sm:px-10 w-[240px] bg-white text-zinc-800 hover:bg-zinc-800 transition-all duration-300 rounded-lg shadow-sm border-0 transform hover:scale-[1.02] active:scale-[0.98]"
                     >
                       Get Started
                     </Button>
                   </Link>
-                    
                 </div>
               </AnimatedSection>
             </div>
           </div>
         </section>
 
-        {/* Social Proof */}
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto">
             <AnimatedSection>
@@ -265,8 +360,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Features Section */}
-        <section className="py-16 md:py-20 bg-zinc-950 relative overflow-hidden">
+        <section id="features" className="py-16 md:py-20 bg-zinc-950 relative overflow-hidden">
           <DotPattern
             className="[mask-image:radial-gradient(1200px_circle_at_center,white,transparent)] opacity-[0.03]"
             width={32}
@@ -294,7 +388,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Testimonial Section */}
         <section className="py-16 md:py-20 bg-zinc-950 relative overflow-hidden">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="max-w-4xl mx-auto">
@@ -350,8 +443,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* FAQ Section */}
-        <section className="py-16 md:py-20 bg-zinc-950 relative overflow-hidden">
+        <section id="faq" className="py-16 md:py-20 bg-zinc-950 relative overflow-hidden">
           <DotPattern
             className="[mask-image:radial-gradient(1200px_circle_at_center,white,transparent)] opacity-[0.025]"
             width={32}
@@ -424,8 +516,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Pricing Section */}
-        <section className="py-16 md:py-20 bg-zinc-950 relative overflow-hidden">
+        <section id="pricing" className="py-16 md:py-20 bg-zinc-950 relative overflow-hidden">
           <DotPattern
             className="[mask-image:radial-gradient(1200px_circle_at_center,white,transparent)] opacity-[0.03]"
             width={32}
@@ -446,7 +537,6 @@ export default function Home() {
             </AnimatedSection>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 max-w-5xl mx-auto">
-              {/* Free Plan */}
               <AnimatedSection delay={0.1}>
                 <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-8 flex flex-col h-full backdrop-blur-sm">
                   <h3 className="font-space-grotesk text-xl font-bold mb-2">Free</h3>
@@ -471,7 +561,6 @@ export default function Home() {
                 </div>
               </AnimatedSection>
 
-              {/* Pro Plan */}
               <AnimatedSection delay={0.2}>
                 <div className="bg-zinc-900/50 border-2 border-rose-500/50 rounded-xl p-8 flex flex-col h-full relative backdrop-blur-sm">
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-rose-500 text-white px-3 py-1 rounded-full text-sm font-medium">
@@ -498,7 +587,6 @@ export default function Home() {
                 </div>
               </AnimatedSection>
 
-              {/* Team Plan */}
               <AnimatedSection delay={0.3}>
                 <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-8 flex flex-col h-full backdrop-blur-sm">
                   <h3 className="font-space-grotesk text-xl font-bold mb-2">Team</h3>
@@ -525,7 +613,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* CTA Section */}
         <section className="py-16 md:py-20 bg-zinc-950 relative overflow-hidden">
           <DotPattern
             className="[mask-image:radial-gradient(1200px_circle_at_center,white,transparent)] opacity-[0.025]"
@@ -536,7 +623,6 @@ export default function Home() {
             cr={0.5}
           />
           
-          {/* Rose gradient background */}
           <div className="absolute inset-x-0 top-0 flex items-start justify-center z-0">
             <div className="absolute h-40 w-[28rem] translate-y-[300%] rounded-full bg-rose-500/30 opacity-80 blur-[100px]" />
           </div>
@@ -560,7 +646,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Footer */}
         <footer className="py-16 border-t border-zinc-800/50 bg-zinc-950">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center">
             <AnimatedSection>
